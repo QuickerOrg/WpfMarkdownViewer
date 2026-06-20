@@ -25,6 +25,8 @@ public class ConversationView : Panel, IVirtualizingContent
 {
     private const double UserBubbleMaxWidthFraction = 0.82;
     private const double UserBubbleRightMargin = 16;
+    private const double VirtualizationBuffer = 600;     // realize a margin beyond the viewport to avoid pop-in
+    private const double EstimatedMessageHeight = 120;   // provisional height for a never-yet-measured message
 
     private sealed class MessageSlot
     {
@@ -117,8 +119,7 @@ public class ConversationView : Panel, IVirtualizingContent
         CompleteMessage();
         var slot = new MessageSlot { Role = role, Finalized = true };
         slot.Markdown.Append(markdown);
-        Realize(slot);
-        slot.View!.SetMarkdown(markdown);
+        Realize(slot); // realized eagerly; MeasureOverride virtualizes it away if it lands off-screen
         _slots.Add(slot);
         InvalidateMeasure();
     }
@@ -147,10 +148,9 @@ public class ConversationView : Panel, IVirtualizingContent
             }
             else if (slot.Element is not null)
             {
+                // Rebuild realized chrome with the new style (Realize re-renders finalized messages).
                 Devirtualize(slot);
                 Realize(slot);
-                if (slot.Finalized)
-                    slot.View!.SetMarkdown(slot.Markdown.ToString());
             }
         }
         InvalidateMeasure();
@@ -185,6 +185,11 @@ public class ConversationView : Panel, IVirtualizingContent
 
         slot.Element = element;
         InternalChildren.Add(element);
+
+        // A finalized message owns its full Markdown, so it can be rebuilt verbatim after being virtualized
+        // away and scrolled back. The active (streaming) message is fed live and is never virtualized.
+        if (slot.Finalized)
+            view.SetMarkdown(slot.Markdown.ToString());
     }
 
     private void Devirtualize(MessageSlot slot)
@@ -218,7 +223,31 @@ public class ConversationView : Panel, IVirtualizingContent
         double availW = availableSize.Width;
         double contentW = Math.Max(1, double.IsInfinity(availW) ? 800 : availW);
 
+        bool virtualize = VirtualizationEnabled && _viewportHeight > 0;
+        double bufTop = _viewportTop - VirtualizationBuffer;
+        double bufBottom = _viewportTop + _viewportHeight + VirtualizationBuffer;
+
+        // Pass 1: provisional Y from cached/estimated heights, then realize/devirtualize per viewport. Only
+        // finalized messages may be dropped; the active (streaming) message is never virtualized.
         double y = 0;
+        foreach (var slot in _slots)
+        {
+            slot.Y = y;
+            y += (slot.Height > 0 ? slot.Height : EstimatedMessageHeight) + _messageSpacing;
+        }
+        foreach (var slot in _slots)
+        {
+            bool onScreen = !virtualize || slot.IsActive || !slot.Finalized || slot.Height <= 0
+                || (slot.Y <= bufBottom && slot.Y + Math.Max(slot.Height, EstimatedMessageHeight) >= bufTop);
+            if (onScreen && slot.View is null)
+                Realize(slot);
+            else if (!onScreen && slot.View is not null && slot.Finalized)
+                Devirtualize(slot);
+        }
+
+        // Pass 2: forward the sub-viewport (two-level virtualization, ADR-0006), measure realized messages,
+        // cache their heights, and compute final layout.
+        y = 0;
         double maxW = 0;
         foreach (var slot in _slots)
         {
@@ -226,9 +255,6 @@ public class ConversationView : Panel, IVirtualizingContent
 
             if (slot.Element is Border bubble)
                 bubble.MaxWidth = contentW * UserBubbleMaxWidthFraction;
-
-            // Two-level virtualization (ADR-0006): forward the host viewport, translated into the message's
-            // own coordinates, so the message renders only its on-screen Blocks.
             if (slot.View is IVirtualizingContent vc && _viewportHeight > 0)
                 vc.SetViewport(_viewportTop - y, _viewportHeight);
 
@@ -237,6 +263,10 @@ public class ConversationView : Panel, IVirtualizingContent
                 el.Measure(new Size(contentW, double.PositiveInfinity));
                 slot.Height = el.DesiredSize.Height;
                 maxW = Math.Max(maxW, el.DesiredSize.Width);
+            }
+            else if (slot.Height <= 0)
+            {
+                slot.Height = EstimatedMessageHeight;
             }
 
             y += slot.Height + _messageSpacing;

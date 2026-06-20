@@ -1,3 +1,4 @@
+using System.Windows;
 using WpfMarkdownViewer.Controls;
 
 namespace WpfMarkdownViewer.Tests.Controls;
@@ -93,6 +94,99 @@ public class ConversationViewTests
 
         Assert.Equal(0, view.MessageCount);
         Assert.Equal(0, view.RealizedCountForTest);
+    }
+
+    // --- M3-B: message-level virtualization ---
+
+    private static ConversationView ManyMessages(int count)
+    {
+        var view = new ConversationView();
+        for (int i = 0; i < count; i++)
+            view.AddMessage(i % 2 == 0 ? ChatRole.User : ChatRole.Assistant, $"message number {i}\n\nwith a second paragraph");
+        Layout(view, 200);
+        return view;
+    }
+
+    private static void Layout(ConversationView view, double height)
+    {
+        view.Measure(new Size(400, double.PositiveInfinity));
+        view.Arrange(new Rect(0, 0, 400, height));
+        view.UpdateLayout();
+    }
+
+    [WpfFact]
+    public void NoViewport_RealizesEveryMessage()
+    {
+        var view = ManyMessages(40);
+
+        Assert.Equal(40, view.MessageCount);
+        Assert.Equal(40, view.RealizedCountForTest); // no Scroll Host ⇒ realize all
+    }
+
+    [WpfFact]
+    public void WithSmallViewport_OffscreenMessages_AreVirtualized()
+    {
+        var view = ManyMessages(40);
+        Assert.Equal(40, view.RealizedCountForTest); // heights measured first
+
+        ((IVirtualizingContent)view).SetViewport(0, 200);
+        Layout(view, 200);
+
+        int realized = view.RealizedCountForTest;
+        Assert.True(realized < 40, $"expected virtualization, but {realized}/40 realized");
+        Assert.True(realized >= 1);
+    }
+
+    [WpfFact]
+    public void ScrollingDown_RealizesLaterMessages()
+    {
+        var view = ManyMessages(40);
+        ((IVirtualizingContent)view).SetViewport(0, 200);
+        Layout(view, 200);
+
+        ((IVirtualizingContent)view).SetViewport(2000, 200);
+        Layout(view, 200);
+
+        Assert.True(view.RealizedCountForTest >= 1);
+        Assert.True(view.RealizedCountForTest < 40);
+    }
+
+    [WpfFact]
+    public void VirtualizationDisabled_KeepsEveryMessageRealized()
+    {
+        var view = ManyMessages(40);
+        view.VirtualizationEnabled = false;
+
+        ((IVirtualizingContent)view).SetViewport(0, 200);
+        Layout(view, 200);
+
+        Assert.Equal(40, view.RealizedCountForTest);
+    }
+
+    [WpfFact]
+    public void RevirtualizedMessage_RebuildsContent_WhenScrolledBack()
+    {
+        var view = ManyMessages(40);
+        ((IVirtualizingContent)view).SetViewport(2000, 200); // drop the early messages
+        Layout(view, 200);
+        ((IVirtualizingContent)view).SetViewport(0, 200);    // scroll back to the top
+        Layout(view, 200);
+
+        Assert.Contains("message number 0", view.MessageTextForTest(0)); // rebuilt from cached Markdown
+    }
+
+    [WpfFact]
+    public void ActiveMessage_IsNeverVirtualized()
+    {
+        var view = ManyMessages(40);
+        view.StartMessage(ChatRole.Assistant);
+        view.AppendDelta("streaming tail");
+        view.FlushActiveForTest();
+
+        ((IVirtualizingContent)view).SetViewport(0, 200); // viewport at the top, active message far below
+        Layout(view, 200);
+
+        Assert.Contains("streaming tail", view.MessageTextForTest(view.MessageCount - 1));
     }
 
     [WpfFact]
