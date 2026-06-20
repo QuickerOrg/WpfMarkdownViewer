@@ -86,8 +86,8 @@ Fonts, sizes, weights, line heights, margins, list indent, colors, the paired Te
 
 | Category | Supported |
 | --- | --- |
-| Block | headings (`#`–`######`), paragraphs, ordered/unordered lists, **task lists** (`- [x]`), blockquotes, fenced code, **tables** (GFM), thematic breaks (`---`), images, block math |
-| Inline | **bold**, *italic*, ~~strike~~, `code`, links, `==highlight==`, `++underline++`, `~sub~`, `^super^`, inline math |
+| Block | headings (`#`–`######`), paragraphs, **nested** ordered/unordered lists, **task lists** (`- [x]`), blockquotes, fenced code (horizontal scroll), **tables** (GFM, **column alignment**), thematic breaks (`---`), images, block math |
+| Inline | **bold**, *italic*, ~~strike~~, `code`, links (inline, **reference-style**, **bare-URL autolinks**), `==highlight==`, `++underline++`, `~sub~`, `^super^`, inline math, hard line breaks, raw HTML (`<br>`, `<sub>`, `<sup>`, `<b>`, `<i>`, `<u>`, `<mark>`, `<code>`, …) |
 | Math | `$…$` / `$$…$$` **and** `\(…\)` / `\[…\]` (LaTeX, via WpfMath) |
 | Images | bitmap (PNG/JPG/…) **and SVG**; sources: `http(s)` (disk cache + ETag revalidation), local files, `data:` URIs, `pack://`/resource |
 | Diagrams | **Mermaid** (`​```mermaid`) — pure-.NET, rendered to vector |
@@ -159,6 +159,8 @@ Run the demo (`samples/WpfMarkdownViewer.Demo`) to see streaming playback, theme
 
 ## Status & roadmap
 
-The minimal block set, streaming pipeline, conversation shell, math, SVG, and Mermaid are implemented and covered by ~190 tests. See [`docs/milestone-1.md`](docs/milestone-1.md) and [`docs/milestone-3.md`](docs/milestone-3.md).
+The streaming pipeline, conversation shell, math, SVG, Mermaid, and the polish items below are implemented and covered by 200+ tests. See [`docs/milestone-1.md`](docs/milestone-1.md) and [`docs/milestone-3.md`](docs/milestone-3.md).
 
-Not yet implemented (candidates): a streaming “typing” caret, horizontal scroll for long code lines, table column alignment, raw-HTML passthrough, autolinks/footnotes, a right-click context menu, image zoom, image/diagram cache eviction, structured (per-block) accessibility, and NuGet packaging.
+Recently added: streaming “typing” caret, horizontal scroll for long code lines, table column alignment, nested lists, raw inline-HTML passthrough (`<br>`, `<sub>`, `<b>`, …), bare-URL autolinks, reference-style links, hard line breaks, right-click context menu, click-to-zoom images, and bounded image/diagram caches.
+
+Not yet implemented: footnotes, structured (per-block screen-reader) accessibility, and NuGet packaging (the project is intended to be embedded as source).
