@@ -37,4 +37,14 @@ public sealed class Document
 
     /// <summary>Clear all Blocks so the Document can be re-streamed (see <c>Reset()</c> in ADR lifecycle).</summary>
     public void Clear() => _blocks.Clear();
+
+    /// <summary>
+    /// Replace the entire Block list. Used by the streaming parser, which re-derives Blocks each tick
+    /// and manages the <see cref="MdBlock.IsFinalized"/> flags itself.
+    /// </summary>
+    internal void SetBlocks(IEnumerable<MdBlock> blocks)
+    {
+        _blocks.Clear();
+        _blocks.AddRange(blocks);
+    }
 }
