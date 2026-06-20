@@ -33,6 +33,8 @@ internal static class BlockViewFactory
 
         ImageBlock img => new ImageView(img, theme),
 
+        MathBlock m => new MathView(m, theme),
+
         ListBlock l => new ListView(l, theme, onLink),
 
         QuoteBlock q => new QuoteView(q, theme, onLink),

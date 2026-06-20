@@ -112,6 +112,25 @@ public sealed class StreamingBlockParser
                 i = startLine + 1;
                 ownClosed = lines[startLine].HasNewline;
             }
+            else if (firstLine.Trim() == "$$")
+            {
+                // Block math fence on its own line (matches Markdig; single-line $$…$$ is inline math).
+                int j = i + 1;
+                bool closed = false;
+                while (j < lines.Count)
+                {
+                    bool isClose = lines[j].Text.Trim() == "$$";
+                    j++;
+                    if (isClose)
+                    {
+                        closed = true;
+                        break;
+                    }
+                }
+                block = new MathBlock();
+                i = j;
+                ownClosed = closed;
+            }
             else if (LooksLikeTable(lines, i))
             {
                 int j = i + 2; // header + delimiter already confirmed

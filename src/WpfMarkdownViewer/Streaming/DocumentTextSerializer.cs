@@ -31,6 +31,7 @@ public static class DocumentTextSerializer
         TableBlock => TableText(block.RawText),
         ThematicBreakBlock => "———",
         ImageBlock img => $"[图片：{img.Alt}]",
+        MathBlock => MathText.Extract(block.RawText),
         _ => Visible(InlineSource.Extract(block)), // heading, paragraph
     };
 

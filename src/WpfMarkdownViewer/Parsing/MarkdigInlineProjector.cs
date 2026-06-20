@@ -14,7 +14,7 @@ namespace WpfMarkdownViewer.Parsing;
 public static class MarkdigInlineProjector
 {
     private static readonly MarkdownPipeline Pipeline =
-        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().UseMathematics().Build();
 
     public static InlineProjection Project(string source)
     {
@@ -40,6 +40,9 @@ public static class MarkdigInlineProjector
                     break;
                 case CodeInline code:
                     Emit(code.Content, style | InlineStyle.Code, link, visible, runs);
+                    break;
+                case Markdig.Extensions.Mathematics.MathInline math:
+                    Emit(math.Content.ToString(), style | InlineStyle.Code, link, visible, runs); // inline math fallback
                     break;
                 case EmphasisInline emphasis:
                     Walk(emphasis, style | EmphasisStyle(emphasis), link, visible, runs);

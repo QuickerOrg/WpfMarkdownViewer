@@ -12,7 +12,7 @@ namespace WpfMarkdownViewer.Parsing;
 public static class MarkdigBlockReader
 {
     private static readonly MarkdownPipeline Pipeline =
-        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().UseMathematics().Build();
 
     public static List<MdBlock> Read(string source)
     {
@@ -28,6 +28,8 @@ public static class MarkdigBlockReader
         // FencedCodeBlock derives from CodeBlock, so it must be matched first.
         MdBlock mapped = block switch
         {
+            // MathBlock derives from FencedCodeBlock, so it must be matched before it.
+            Markdig.Extensions.Mathematics.MathBlock => new MathBlock(),
             Md.HeadingBlock h => new HeadingBlock { Level = h.Level },
             Md.FencedCodeBlock f => new CodeBlock { Language = Empty(f.Info), FenceClosed = true },
             Md.CodeBlock => new CodeBlock { FenceClosed = true },

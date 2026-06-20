@@ -13,6 +13,7 @@ public enum BlockKind
     Table,
     ThematicBreak,
     Image,
+    Math,
 }
 
 /// <summary>

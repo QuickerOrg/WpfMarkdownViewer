@@ -174,6 +174,13 @@ public class StreamingBlockParserTests
     }
 
     [Fact]
+    public void BlockMath_MultiLine_IsRecognized()
+    {
+        var doc = Parse("$$\n\\int_0^1 x\\,dx\n$$", complete: true).Document;
+        Assert.Equal(BlockKind.Math, Assert.Single(doc.Blocks).Kind);
+    }
+
+    [Fact]
     public void StreamComplete_FinalizesTheTrailingBlock()
     {
         var doc = Parse("still typing", complete: true).Document;

@@ -61,3 +61,9 @@ public sealed class ImageBlock : MdBlock
 
     public override BlockKind Kind => BlockKind.Image;
 }
+
+/// <summary>A block-level math formula (<c>$$ … $$</c>).</summary>
+public sealed class MathBlock : MdBlock
+{
+    public override BlockKind Kind => BlockKind.Math;
+}
