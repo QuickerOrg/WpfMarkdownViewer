@@ -76,6 +76,18 @@ public static class InlineProjector
                 style ^= InlineStyle.Underline;
                 i += 2;
             }
+            else if (c == '~')
+            {
+                Flush();
+                style ^= InlineStyle.Subscript;
+                i += 1;
+            }
+            else if (c == '^')
+            {
+                Flush();
+                style ^= InlineStyle.Superscript;
+                i += 1;
+            }
             else if (c == '`')
             {
                 int close = source.IndexOf('`', i + 1);

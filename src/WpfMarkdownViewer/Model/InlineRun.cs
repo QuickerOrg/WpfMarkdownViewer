@@ -11,6 +11,8 @@ public enum InlineStyle
     Strikethrough = 8,
     Underline = 16,
     Highlight = 32,
+    Subscript = 64,
+    Superscript = 128,
 }
 
 /// <summary>

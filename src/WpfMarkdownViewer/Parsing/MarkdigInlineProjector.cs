@@ -62,10 +62,10 @@ public static class MarkdigInlineProjector
 
     private static InlineStyle EmphasisStyle(EmphasisInline e) => e.DelimiterChar switch
     {
-        '~' => e.DelimiterCount >= 2 ? InlineStyle.Strikethrough : InlineStyle.None, // ~~strike~~ ; ~sub~ deferred
+        '~' => e.DelimiterCount >= 2 ? InlineStyle.Strikethrough : InlineStyle.Subscript, // ~~strike~~ ; ~sub~
         '=' => InlineStyle.Highlight, // ==mark==
         '+' => InlineStyle.Underline, // ++ins++
-        '^' => InlineStyle.None, // ^sup^ deferred
+        '^' => InlineStyle.Superscript, // ^sup^
         _ => e.DelimiterCount >= 2 ? InlineStyle.Bold : InlineStyle.Italic, // * or _
     };
 

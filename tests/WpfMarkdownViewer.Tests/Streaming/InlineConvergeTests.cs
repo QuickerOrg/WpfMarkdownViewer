@@ -24,6 +24,8 @@ public class InlineConvergeTests
         yield return ["a ==highlight== b"];
         yield return ["++inserted++"];
         yield return ["mix ~~s~~ and **b** and ==m== done"];
+        yield return ["H~2~O"];
+        yield return ["x^2^ + y^2^"];
     }
 
     [Theory]

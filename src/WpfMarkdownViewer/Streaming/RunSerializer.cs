@@ -37,6 +37,8 @@ public static class RunSerializer
         if (run.Style.HasFlag(InlineStyle.Strikethrough)) s = $"~~{s}~~";
         if (run.Style.HasFlag(InlineStyle.Highlight)) s = $"=={s}==";
         if (run.Style.HasFlag(InlineStyle.Underline)) s = $"++{s}++";
+        if (run.Style.HasFlag(InlineStyle.Subscript)) s = $"~{s}~";
+        if (run.Style.HasFlag(InlineStyle.Superscript)) s = $"^{s}^";
         if (run.LinkTarget is { } link) s = $"[{s}]({link})";
         return s;
     }
@@ -56,6 +58,8 @@ public static class RunSerializer
             if (run.Style.HasFlag(InlineStyle.Strikethrough)) inner = $"<s>{inner}</s>";
             if (run.Style.HasFlag(InlineStyle.Highlight)) inner = $"<mark>{inner}</mark>";
             if (run.Style.HasFlag(InlineStyle.Underline)) inner = $"<u>{inner}</u>";
+            if (run.Style.HasFlag(InlineStyle.Subscript)) inner = $"<sub>{inner}</sub>";
+            if (run.Style.HasFlag(InlineStyle.Superscript)) inner = $"<sup>{inner}</sup>";
         }
         if (run.LinkTarget is { } link)
             inner = $"<a href=\"{Escape(link)}\">{inner}</a>";

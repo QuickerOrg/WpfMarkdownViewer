@@ -70,7 +70,12 @@ internal sealed class InlineTextSource : TextSource
             : code ? _theme.InlineCodeBackground
             : null;
 
-        return new InlineRunProperties(typeface, _emSize, fg, bg, BuildDecorations(run));
+        // Sub/superscript: smaller font (approximate; true baseline shift would need TextRunTypographyProperties).
+        double em = run.Style.HasFlag(InlineStyle.Subscript) || run.Style.HasFlag(InlineStyle.Superscript)
+            ? _emSize * 0.72
+            : _emSize;
+
+        return new InlineRunProperties(typeface, em, fg, bg, BuildDecorations(run));
     }
 
     private static TextDecorationCollection? BuildDecorations(InlineRun run)
