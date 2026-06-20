@@ -16,7 +16,7 @@ internal sealed class ListView : Panel
     private const double ItemSpacing = 2;
 
     private readonly MarkdownStyle _theme;
-    private readonly List<string> _markers = new();
+    private readonly List<Marker> _markers = new();
     private readonly List<double> _itemTops = new();
 
     private double Indent => _theme.ListIndent;
@@ -27,7 +27,9 @@ internal sealed class ListView : Panel
         int n = 1;
         foreach (var item in ParseItems(list.RawText))
         {
-            _markers.Add(item.IsTask ? (item.Checked ? "☑" : "☐") : list.Ordered ? $"{n}." : "•");
+            _markers.Add(item.IsTask
+                ? new Marker(null, IsTask: true, item.Checked)
+                : new Marker(list.Ordered ? $"{n}." : "•", IsTask: false, Checked: false));
             InternalChildren.Add(new ParagraphView(
                 InlineProjector.Project(item.Content), theme, theme.EmSize, FontWeights.Normal,
                 lineHeightFactor: theme.ListLineHeight, onLink: onLink));
@@ -36,6 +38,8 @@ internal sealed class ListView : Panel
     }
 
     private readonly record struct Item(string Content, bool IsTask, bool Checked);
+
+    private readonly record struct Marker(string? Text, bool IsTask, bool Checked);
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -73,9 +77,47 @@ internal sealed class ListView : Panel
 
         for (int i = 0; i < _markers.Count && i < _itemTops.Count; i++)
         {
-            var marker = new FormattedText(_markers[i], CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                _theme.BaseTypeface, _theme.EmSize, _theme.Foreground, dpi);
-            dc.DrawText(marker, new Point(Indent - 18, _itemTops[i]));
+            var m = _markers[i];
+            if (m.IsTask)
+            {
+                DrawCheckbox(dc, _itemTops[i], m.Checked);
+            }
+            else
+            {
+                var marker = new FormattedText(m.Text!, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                    _theme.BaseTypeface, _theme.EmSize, _theme.Foreground, dpi);
+                dc.DrawText(marker, new Point(Indent - 18, _itemTops[i]));
+            }
+        }
+    }
+
+    /// <summary>Self-drawn checkbox (uniform box; accent fill + check when checked) so it matches the unchecked box and never overlaps the text.</summary>
+    private void DrawCheckbox(DrawingContext dc, double itemTop, bool isChecked)
+    {
+        double size = Math.Round(_theme.EmSize * 0.92);
+        double lineHeight = _theme.EmSize * _theme.ListLineHeight;
+        double bx = Indent - 6 - size;
+        double by = itemTop + (lineHeight - size) / 2;
+        var rect = new Rect(bx, by, size, size);
+
+        if (isChecked)
+        {
+            dc.DrawRoundedRectangle(_theme.LinkBrush, null, rect, 3, 3);
+            var check = new Pen(_theme.Background, Math.Max(1.4, size * 0.13))
+            {
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round,
+                LineJoin = PenLineJoin.Round,
+            };
+            var p0 = new Point(bx + size * 0.24, by + size * 0.52);
+            var p1 = new Point(bx + size * 0.42, by + size * 0.70);
+            var p2 = new Point(bx + size * 0.76, by + size * 0.30);
+            dc.DrawLine(check, p0, p1);
+            dc.DrawLine(check, p1, p2);
+        }
+        else
+        {
+            dc.DrawRoundedRectangle(null, new Pen(_theme.QuoteBar, 1.3), rect, 3, 3);
         }
     }
 
