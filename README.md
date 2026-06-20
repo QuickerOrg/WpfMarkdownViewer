@@ -1,0 +1,164 @@
+# WpfMarkdownViewer
+
+A native **WPF** component for rendering AI-generated Markdown with **ChatGPT-quality visuals** and **smooth incremental streaming** — no browser, no WebView2, no JavaScript.
+
+Built as long-term shared infrastructure for AI features (multiple model providers, plugin output, action docs), not a one-off viewer. The renderer is **self-drawn** (`TextFormatter` + `DrawingContext`), only re-renders the single trailing block as tokens arrive, and **converges** its streaming preview to a `Markdig` parse once a block is finalized.
+
+```
+AI token stream → AppendDelta(...) → adaptive throttle → streaming block parser
+                → only the Active Block re-renders → finalize → Markdig is authoritative
+```
+
+## Highlights
+
+- **Streaming-first.** `AppendDelta` is thread-safe; an adaptive timer flushes on a discrete cadence and re-renders only the active block. Finalized blocks are immutable and reused.
+- **Self-drawn, fast.** No `FlowDocument`, no per-token visual-tree rebuilds. Two-level + message-level virtualization keeps long transcripts responsive.
+- **ChatGPT-style chat shell.** Optional `ConversationView`: user bubbles, full-width assistant turns, per-message action bar (copy / regenerate), message-level virtualization.
+- **Rich content.** Headings, emphasis, lists, task lists, tables, blockquotes, fenced code with TextMate highlighting + copy button, images (bitmap **and SVG**), block & inline **math** (LaTeX), and **Mermaid** diagrams — all rendered natively.
+- **Selection & copy.** Drag-select across blocks *and* messages, auto-scroll at the viewport edge, copy as faithful plain-text Markdown (code fences, pipe tables, mermaid source preserved).
+- **Themable.** Strongly-typed `MarkdownStyle` with coordinated light/dark presets, runtime-swappable.
+- **Pluggable.** Swap the Mermaid engine (`IMermaidRenderer`) for a remote/WebView2 one without touching the core.
+
+## Requirements
+
+- .NET 10 (Windows), WPF (`net10.0-windows`).
+
+> Not yet published to NuGet. Reference the `WpfMarkdownViewer` project directly, or build a package from source (see [Building](#building--testing)).
+
+## Quick start — streaming
+
+Wrap the renderer in a `MarkdownScrollHost` (it owns the viewport, sticky-bottom follow, and the “jump to latest” affordance), then push tokens:
+
+```xml
+<ctrl:MarkdownScrollHost xmlns:ctrl="clr-namespace:WpfMarkdownViewer.Controls;assembly=WpfMarkdownViewer"
+                         x:Name="Host">
+    <ctrl:MarkdownDocumentView x:Name="Viewer" />
+</ctrl:MarkdownScrollHost>
+```
+
+```csharp
+Viewer.LinkClicked += (_, e) => OpenInBrowser(e.Url); // the component never navigates itself
+
+await foreach (var token in model.StreamAsync(prompt))
+    Viewer.AppendDelta(token);   // safe from any thread
+
+Viewer.Complete();               // finalize: Markdig becomes authoritative
+```
+
+Other lifecycle methods: `Reset()` (re-stream, e.g. “regenerate”), `Abort()` (cancelled stream), `SetMarkdown(string)` (render a complete document with no stream).
+
+## Quick start — conversation shell
+
+```csharp
+var chat = new ConversationView { MarkdownStyle = MarkdownStyle.Dark };
+Host.Content = chat;
+chat.LinkClicked += (_, e) => OpenInBrowser(e.Url);
+chat.MessageRegenerateRequested += (_, e) => Regenerate(e.MessageIndex);
+
+chat.AddMessage(ChatRole.User, "Explain quicksort.");
+
+chat.StartMessage(ChatRole.Assistant);
+await foreach (var token in model.StreamAsync(prompt))
+    chat.AppendDelta(token);
+chat.CompleteMessage();
+```
+
+## Theming
+
+`MarkdownStyle` is an immutable record; derive tweaks with `with`:
+
+```csharp
+Viewer.ApplyTheme(MarkdownStyle.Dark);
+
+Viewer.MarkdownStyle = MarkdownStyle.Light with
+{
+    BaseTypeface = new Typeface("Microsoft YaHei"),
+    EmSize = 17,
+    ParagraphLineHeight = 1.85,
+    LinkBrush = new SolidColorBrush(Color.FromRgb(0x7c, 0x3a, 0xed)),
+    HeadingScales = new[] { 2.1, 1.7, 1.4, 1.2, 1.1, 1.0 },
+};
+```
+
+Fonts, sizes, weights, line heights, margins, list indent, colors, the paired TextMate code theme, and the chat bubble color are all configurable.
+
+## Supported Markdown
+
+| Category | Supported |
+| --- | --- |
+| Block | headings (`#`–`######`), paragraphs, ordered/unordered lists, **task lists** (`- [x]`), blockquotes, fenced code, **tables** (GFM), thematic breaks (`---`), images, block math |
+| Inline | **bold**, *italic*, ~~strike~~, `code`, links, `==highlight==`, `++underline++`, `~sub~`, `^super^`, inline math |
+| Math | `$…$` / `$$…$$` **and** `\(…\)` / `\[…\]` (LaTeX, via WpfMath) |
+| Images | bitmap (PNG/JPG/…) **and SVG**; sources: `http(s)` (disk cache + ETag revalidation), local files, `data:` URIs, `pack://`/resource |
+| Diagrams | **Mermaid** (`​```mermaid`) — pure-.NET, rendered to vector |
+| Code | TextMate syntax highlighting (many languages), language bar, copy button, live re-highlight while streaming |
+
+Inline markup is **converged** to Markdig: the streaming preview of any finalized block equals Markdig’s parse of the same text (guarded by the test suite).
+
+## Mermaid (pluggable)
+
+`​```mermaid` blocks render natively via a pure-.NET engine ([Mermaider](https://www.nuget.org/packages/Mermaider)) → SVG → vector — no browser. Swap the engine by assigning `Mermaid.Renderer`:
+
+```csharp
+// Disable (mermaid falls back to a code block):
+WpfMarkdownViewer.Rendering.Mermaid.Renderer = null;
+
+// Or provide your own (remote service, WebView2, …):
+Mermaid.Renderer = new MyMermaidRenderer(); // implements IMermaidRenderer
+```
+
+## Selection & copy
+
+- Drag to select across blocks and (in the shell) across messages; the viewport auto-scrolls when you drag past its edge.
+- `Ctrl+C` (or `CopySelection()`) copies the selection as **plain-text Markdown** — code blocks keep their ```` ``` ```` fences, tables are rebuilt with pipes, mermaid keeps its source.
+- `SelectAll()` selects everything realized.
+
+## Public API (essentials)
+
+**`MarkdownDocumentView`** (`Panel`) — one streamed document
+`AppendDelta` · `Complete` · `Reset` · `Abort` · `SetMarkdown` · `SelectAll` · `CopySelection` · `ApplyTheme` · `MarkdownStyle` · `ImageBasePath` · `VirtualizationEnabled` · `ShrinkToContentWidth` · `SelectionEnabled` · events `LinkClicked`, `DocumentChanged`
+
+**`MarkdownScrollHost`** (`Grid`) — viewport + autoscroll
+`Content` · `IsStickToBottom` · `JumpToLatest()` · `ScrollToTop()`
+
+**`ConversationView`** (`Panel`) — optional chat shell
+`StartMessage` · `AppendDelta` · `CompleteMessage` · `AddMessage` · `Clear` · `SelectAll` · `CopySelection` · `ApplyTheme` · `MarkdownStyle` · `MessageCount` · `VirtualizationEnabled` · `AlwaysShowActions` · events `LinkClicked`, `MessageCompleted`, `MessageRegenerateRequested`
+
+**`MarkdownStyle`** (`record`, namespace `WpfMarkdownViewer.Rendering`) — `Light` / `Dark` presets.
+**`Mermaid`** / **`IMermaidRenderer`** / **`MermaidRequest`** — diagram rendering.
+
+## Architecture
+
+Design decisions live in [`docs/adr`](docs/adr) and the domain language in [`CONTEXT.md`](CONTEXT.md). Key choices:
+
+- **Self-built block renderer** over FlowDocument/WebView2 (ADR-0001).
+- **Markdig as the source of truth**, with a converging streaming parser (ADR-0002).
+- **Single-document core + optional conversation shell** (ADR-0004); non-chat consumers use the core directly.
+- **Two-level virtualization** enabled by immutable finalized blocks (ADR-0006).
+- **Flat, visible-space inline runs** for self-drawn text and selection (ADR-0005/0007).
+- **Read-only renderer**; the host owns navigation and security (ADR-0009).
+
+## Building & testing
+
+```bash
+dotnet build WpfMarkdownViewer.slnx
+dotnet test  tests/WpfMarkdownViewer.Tests/WpfMarkdownViewer.Tests.csproj
+```
+
+Run the demo (`samples/WpfMarkdownViewer.Demo`) to see streaming playback, theme toggle, custom style, and a chat transcript; pass `--conversation` to open straight into the chat shell. The demo also writes reference snapshots to `artifacts/`.
+
+## Dependencies
+
+| Package | Used for | License |
+| --- | --- | --- |
+| Markdig | authoritative Markdown parse | BSD-2 |
+| TextMateSharp(.Grammars) | code syntax highlighting | MIT |
+| WpfMath | LaTeX math rendering | MIT |
+| SharpVectors.Reloaded | SVG → WPF vector | BSD-3 |
+| Mermaider | pure-.NET Mermaid → SVG | MIT |
+
+## Status & roadmap
+
+The minimal block set, streaming pipeline, conversation shell, math, SVG, and Mermaid are implemented and covered by ~190 tests. See [`docs/milestone-1.md`](docs/milestone-1.md) and [`docs/milestone-3.md`](docs/milestone-3.md).
+
+Not yet implemented (candidates): a streaming “typing” caret, horizontal scroll for long code lines, table column alignment, raw-HTML passthrough, autolinks/footnotes, a right-click context menu, image zoom, image/diagram cache eviction, structured (per-block) accessibility, and NuGet packaging.
