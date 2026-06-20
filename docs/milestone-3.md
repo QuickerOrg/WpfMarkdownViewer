@@ -37,7 +37,15 @@
 - **跨消息文本选择**：抽取可复用 `SelectionController`（按根收集 `ISelectableText` 叶子、按 Y 排序）；`MarkdownDocumentView` 委托并新增 `SelectionEnabled`；`ConversationView` 拥有跨全部已实现消息的单一选区。
 - **消息操作条**：每条消息下方"复制"（整条 Markdown）；助手消息额外"重新生成"（抛 `MessageRegenerateRequested`）。默认 hover 显示，`AlwaysShowActions` 可常显。
 
+## 阶段 E · 对标 LiveMarkdown.Avalonia 补齐（已完成）
+
+- **数学定界符**：`\(…\)` / `\[…\]` 归一化为 `$…$` / `$$…$$`（跳过围栏代码）。
+- **拖选自动滚动**：拖到视口边缘自动滚动并延展选区（`SelectionController` + `IScrollHostAware`）。
+- **SVG 图片**：SharpVectors 矢量渲染；图片加载统一为 `ImageLoader`（data URI、pack/资源、http 条件请求 ETag）。
+- **Mermaid 图表**：纯 .NET（Mermaider）→ SVG → SharpVectors，全程本地无浏览器；可插拔 `IMermaidRenderer` 扩展点（ADR-0010），内置实现。`MermaidSvgFlattener` 把 Mermaider 的 CSS 变量/`color-mix` 扁平化成 SharpVectors 可解析的内联值。`​```mermaid` 块识别后渲染为矢量图，失败回退为代码块，整块原子选区可复制回 ` ```mermaid` 源码。
+
 ## 不在 M3
 
 - 头像、时间戳、点赞点踩等更多聊天 chrome。
 - 被消息级虚拟化丢弃的离屏消息不参与跨消息选区（与块级一致）。
+- Mermaid：依赖 Mermaider 覆盖的图类型（流程/时序/状态/类/ER/饼/时间线/gitgraph/思维导图…）。

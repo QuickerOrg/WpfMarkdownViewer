@@ -161,8 +161,21 @@ public partial class MainWindow : Window
                 "- 若存在因子，必有一个 ≤ √n\n\n" +
                 "| 输入 | 输出 |\n| --- | --- |\n| 7 | true |\n| 9 | false |\n\n" +
                 $"下面是一张 SVG 矢量图（缩放不失真）：\n\n![SVG 示例]({svgUrl})"),
-            (ChatRole.User, "时间复杂度是多少？"),
-            (ChatRole.Assistant, "时间复杂度 \\(O(\\sqrt{n})\\)，空间复杂度 \\(O(1)\\) —— 对单次判断已经足够快。"),
+            (ChatRole.User, "时间复杂度是多少？画个流程图。"),
+            (ChatRole.Assistant,
+                "时间复杂度 \\(O(\\sqrt{n})\\)，空间复杂度 \\(O(1)\\) —— 对单次判断已经足够快。\n\n" +
+                "算法流程：\n\n" +
+                "```mermaid\n" +
+                "flowchart TD\n" +
+                "  A[输入 n] --> B{n < 2 ?}\n" +
+                "  B -- 是 --> C[非质数]\n" +
+                "  B -- 否 --> D[i = 2]\n" +
+                "  D --> E{i*i <= n ?}\n" +
+                "  E -- 否 --> F[是质数]\n" +
+                "  E -- 是 --> G{n % i == 0 ?}\n" +
+                "  G -- 是 --> C\n" +
+                "  G -- 否 --> H[i++] --> E\n" +
+                "```"),
         };
         _turn = 0;
         StatusText.Text = "对话流式中…";
@@ -189,7 +202,10 @@ public partial class MainWindow : Window
             {
                 _convFeeder!.Stop();
                 StatusText.Text = "对话完成";
-                Dispatcher.BeginInvoke(new Action(SaveConversationSnapshot), DispatcherPriority.ApplicationIdle);
+                // Give async content (Mermaid render, image downloads) time to land before snapshotting.
+                var delay = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+                delay.Tick += (_, _) => { delay.Stop(); SaveConversationSnapshot(); };
+                delay.Start();
                 return;
             }
             BeginTurn();
@@ -223,6 +239,8 @@ public partial class MainWindow : Window
         if (_conv is null)
             return;
         _conv.VirtualizationEnabled = false;
+        Host.ScrollToTop();
+        Host.UpdateLayout();
         _conv.UpdateLayout();
         SaveElement(_conv, "demo-conversation.png");
         _conv.VirtualizationEnabled = true;

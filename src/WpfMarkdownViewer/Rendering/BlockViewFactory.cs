@@ -49,6 +49,9 @@ internal static class BlockViewFactory
     private static FrameworkElement CreateCodeView(CodeBlock c, MarkdownStyle theme)
     {
         string code = CodeText.Extract(c);
+        if (string.Equals(c.Language, "mermaid", StringComparison.OrdinalIgnoreCase) && Mermaid.Renderer is not null)
+            return new MermaidView(code, theme);
+
         var lines = HighlighterFor(theme.TextMateTheme).Highlight(code, c.Language);
         return new CodeBlockView(code, c.Language, lines, theme);
     }
