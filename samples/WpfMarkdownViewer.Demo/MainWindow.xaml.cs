@@ -40,7 +40,18 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Viewer.LinkClicked += OnLinkClicked;
         Loaded += (_, _) => Replay();
+    }
+
+    private void OnLinkClicked(object? sender, WpfMarkdownViewer.Controls.LinkClickedEventArgs e)
+    {
+        StatusText.Text = $"点击链接：{e.Url}";
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Url) { UseShellExecute = true });
+        }
+        catch { /* host decides; demo best-effort opens in browser */ }
     }
 
     private void OnReplay(object sender, RoutedEventArgs e) => Replay();
