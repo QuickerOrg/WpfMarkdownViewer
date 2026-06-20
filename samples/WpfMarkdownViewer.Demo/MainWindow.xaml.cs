@@ -13,36 +13,44 @@ public partial class MainWindow : Window
     private const string Sample =
         "# WpfMarkdownViewer\n\n" +
         "这是一个**自绘**的、支持*增量流式*渲染的 Markdown 组件，目标是接近 `ChatGPT` 的网页效果，并且在长回复下保持流畅。\n\n" +
-        "## 核心特性\n\n" +
-        "- 块级增量渲染，只重绘 Active Block\n" +
-        "- 流式预览必须 **Converge** 到 Markdig\n" +
-        "- 自适应节流，平滑流动\n\n" +
-        "下面是一段示例代码：\n\n" +
+        "## 核心特性（嵌套列表）\n\n" +
+        "- 块级增量渲染\n" +
+        "  - 只重绘 Active Block\n" +
+        "  - 流式预览必须 **Converge** 到 Markdig\n" +
+        "- 自适应节流\n" +
+        "  1. 慢档：来即刷\n" +
+        "  2. 中档：33ms\n" +
+        "  3. 快档：66–80ms\n\n" +
+        "下面是一段示例代码（含超长行，可 Shift+滚轮横向滚动）：\n\n" +
         "```csharp\n" +
         "public sealed class Demo\n" +
         "{\n" +
-        "    public IReadOnlyList<MdBlock> Render(string markdown)\n" +
-        "        => parser.ToBlocks(markdown);\n" +
+        "    public IReadOnlyList<MdBlock> Render(string markdown) => parser.ToBlocks(markdown).Where(b => b.IsFinalized).Select(b => Project(b)).ToList(); // 故意写很长一行以演示横向滚动\n" +
         "}\n" +
         "```\n\n" +
         "> 设计要点：finalize 时不应有可见跳变 —— 这一点由 Converge 测试守护。\n\n" +
         "## 更多元素\n\n" +
         "支持 ~~删除线~~、==高亮==、++下划线++、上标 x^2^ 与下标 H~2~O 等扩展样式。\n\n" +
+        "也支持内联 HTML：H<sub>2</sub>O、E = mc<sup>2</sup>、<b>加粗</b>、<mark>高亮</mark>。\n\n" +
+        "硬换行：第一行末尾两个空格  \n第二行另起。\n\n" +
+        "自动链接：直接写 https://github.com 也会成链。\n\n" +
         "- [x] 流式自绘 + Converge\n" +
         "- [x] 代码高亮 / 表格\n" +
-        "- [ ] 文本选择与复制（进行中）\n\n" +
+        "- [x] 文本选择与复制\n\n" +
         "---\n\n" +
         "## 数学公式\n\n" +
+        "行内 \\(a^2 + b^2 = c^2\\)，以及块级：\n\n" +
         "$$\n\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n$$\n\n" +
-        "## 示例图片\n\n" +
+        "## 示例图片（点击放大）\n\n" +
         "![示例图片](https://picsum.photos/seed/wpfmd/480/200)\n\n" +
-        "## 三种实现路线\n\n" +
+        "## 三种实现路线（列对齐）\n\n" +
         "| 路线 | 优点 | 建议 |\n" +
-        "| --- | --- | --- |\n" +
+        "| :--- | :---: | ---: |\n" +
         "| WebView2 | 接近网页、生态成熟 | 快速验证 |\n" +
         "| FlowDocument | 实现快、纯 WPF | 仅 MVP |\n" +
         "| 自研 Renderer | 性能与体验最好 | 长期推荐 |\n\n" +
-        "更多内容见 [项目文档](https://example.com) 与各 ADR。\n";
+        "更多内容见 [项目文档][docs] 与各 ADR。\n\n" +
+        "[docs]: https://example.com/docs\n";
 
     private DispatcherTimer? _feeder;
     private int _pos;
@@ -275,21 +283,18 @@ public partial class MainWindow : Window
 
     private void SaveSnapshots()
     {
-        Viewer.VirtualizationEnabled = false; // realize all so the full-content snapshot isn't virtualized
-        Host.ScrollToTop();                   // capture from the document top (sub/superscript live near the top)
+        Viewer.VirtualizationEnabled = false;
+        Host.ScrollToTop();
         Host.UpdateLayout();
-        ApplyTheme(dark: false);
         Save("demo.png");
         Viewer.SelectAll();
         Viewer.UpdateLayout();
         Save("demo-selection.png");
-        ApplyTheme(dark: true); // rebuilds block visuals, clearing the selection highlight
+        ApplyTheme(dark: true);
         Save("demo-dark.png");
-        Viewer.MarkdownStyle = BuildCustomStyle();
-        Save("demo-custom.png");
-        ApplyTheme(_dark); // restore whatever the user had
-        Viewer.VirtualizationEnabled = true; // re-enable for live scrolling
-        StatusText.Text = "完成；已保存浅色/深色/自定义快照";
+        ApplyTheme(_dark);
+        Viewer.VirtualizationEnabled = true;
+        StatusText.Text = "完成；已保存快照";
     }
 
     private void Save(string fileName) => SaveElement(Viewer, fileName);
@@ -302,6 +307,13 @@ public partial class MainWindow : Window
             int w = Math.Max(1, (int)Math.Ceiling(element.ActualWidth));
             int h = Math.Max(1, (int)Math.Ceiling(element.ActualHeight));
             var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+
+            // A Panel's Background isn't always painted into an RTB; lay down the theme backdrop first.
+            var bg = (element as System.Windows.Controls.Panel)?.Background ?? Brushes.White;
+            var backdrop = new DrawingVisual();
+            using (var dc = backdrop.RenderOpen())
+                dc.DrawRectangle(bg, null, new Rect(0, 0, w, h));
+            rtb.Render(backdrop);
             rtb.Render(element);
 
             var encoder = new PngBitmapEncoder();
