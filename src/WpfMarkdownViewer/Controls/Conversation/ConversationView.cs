@@ -59,6 +59,23 @@ public class ConversationView : Panel, IVirtualizingContent, IScrollHostAware
         Focusable = true;
         _selection = new SelectionController(this);
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, _) => CopySelection()));
+        BuildContextMenu();
+    }
+
+    private MenuItem? _copyMenuItem;
+
+    private void BuildContextMenu()
+    {
+        _copyMenuItem = new MenuItem { Header = "复制" };
+        _copyMenuItem.Click += (_, _) => CopySelection();
+        var selectAll = new MenuItem { Header = "全选" };
+        selectAll.Click += (_, _) => SelectAll();
+
+        var menu = new ContextMenu();
+        menu.Items.Add(_copyMenuItem);
+        menu.Items.Add(selectAll);
+        ContextMenu = menu;
+        ContextMenuOpening += (_, _) => { if (_copyMenuItem is not null) _copyMenuItem.IsEnabled = _selection.HasSelection; };
     }
 
     /// <summary>XAML content sink placeholder so the control can be declared with no children. Not used in code.</summary>

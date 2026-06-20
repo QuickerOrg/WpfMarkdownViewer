@@ -139,6 +139,29 @@ internal sealed class ImageView : FrameworkElement
 
     protected override Size ArrangeOverride(Size finalSize) => finalSize;
 
+    protected override void OnMouseMove(System.Windows.Input.MouseEventArgs e)
+    {
+        Cursor = _image is not null ? System.Windows.Input.Cursors.Hand : null;
+        base.OnMouseMove(e);
+    }
+
+    protected override void OnMouseLeftButtonDown(System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_image is not null)
+            e.Handled = true; // suppress document drag-selection over the image
+        base.OnMouseLeftButtonDown(e);
+    }
+
+    protected override void OnMouseLeftButtonUp(System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_image is not null)
+        {
+            ImageLightbox.Show(_image, this);
+            e.Handled = true;
+        }
+        base.OnMouseLeftButtonUp(e);
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         if (_image is not null)

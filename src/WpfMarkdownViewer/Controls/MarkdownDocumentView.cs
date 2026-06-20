@@ -100,6 +100,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         _pump.Start();
         _caretBlink = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(530) };
         _caretBlink.Tick += OnCaretBlink;
+        BuildContextMenu();
     }
 
     /// <summary>The appearance configuration (fonts, sizes, margins, colors). Settable in code or XAML; runtime-swappable (M2-1).</summary>
@@ -426,6 +427,22 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
 
     /// <summary>Copy the current selection as plain-text Markdown only (the text IS the Markdown source, so it round-trips into any editor).</summary>
     public void CopySelection() => _selection.Copy();
+
+    private MenuItem? _copyMenuItem;
+
+    private void BuildContextMenu()
+    {
+        _copyMenuItem = new MenuItem { Header = "复制" };
+        _copyMenuItem.Click += (_, _) => CopySelection();
+        var selectAll = new MenuItem { Header = "全选" };
+        selectAll.Click += (_, _) => SelectAll();
+
+        var menu = new ContextMenu();
+        menu.Items.Add(_copyMenuItem);
+        menu.Items.Add(selectAll);
+        ContextMenu = menu;
+        ContextMenuOpening += (_, _) => { if (_copyMenuItem is not null) _copyMenuItem.IsEnabled = _selection.HasSelection; };
+    }
 
     // --- Test hooks ---
 
