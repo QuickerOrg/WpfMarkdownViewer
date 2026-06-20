@@ -1,0 +1,50 @@
+using Markdig;
+using WpfMarkdownViewer.Model;
+using Md = Markdig.Syntax;
+
+namespace WpfMarkdownViewer.Parsing;
+
+/// <summary>
+/// Reads a finalized Markdown string into authoritative <see cref="MdBlock"/>s using Markdig.
+/// On Finalize, Markdig is the source of truth (ADR-0002); the streaming state machine's job is to
+/// Converge to this.
+/// </summary>
+public static class MarkdigBlockReader
+{
+    private static readonly MarkdownPipeline Pipeline =
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+
+    public static List<MdBlock> Read(string source)
+    {
+        var doc = Markdown.Parse(source, Pipeline);
+        var result = new List<MdBlock>(doc.Count);
+        foreach (var block in doc)
+            result.Add(Map(block, source));
+        return result;
+    }
+
+    private static MdBlock Map(Md.Block block, string source)
+    {
+        // FencedCodeBlock derives from CodeBlock, so it must be matched first.
+        MdBlock mapped = block switch
+        {
+            Md.HeadingBlock h => new HeadingBlock { Level = h.Level },
+            Md.FencedCodeBlock f => new CodeBlock { Language = Empty(f.Info), FenceClosed = true },
+            Md.CodeBlock => new CodeBlock { FenceClosed = true },
+            Md.QuoteBlock => new QuoteBlock(),
+            Md.ListBlock l => new ListBlock { Ordered = l.IsOrdered },
+            Md.ParagraphBlock => new ParagraphBlock(),
+            _ => new ParagraphBlock(), // M1 minimal set: anything else is treated as a paragraph.
+        };
+
+        var span = block.Span;
+        mapped.SourceStart = span.Start;
+        mapped.RawText = span.Length > 0 && span.End < source.Length
+            ? source.Substring(span.Start, span.Length)
+            : source[Math.Min(span.Start, source.Length)..];
+        mapped.IsFinalized = true;
+        return mapped;
+    }
+
+    private static string? Empty(string? s) => string.IsNullOrEmpty(s) ? null : s;
+}

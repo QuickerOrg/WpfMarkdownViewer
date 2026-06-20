@@ -130,7 +130,11 @@ public class MarkdownDocumentView : Control
         }
         if (!changed)
             return;
-        _parser.Reparse(_source.ToString(), _completed);
+        // Streaming → best-effort preview (state machine). On completion → Markdig is authoritative (ADR-0002).
+        if (_completed)
+            _parser.FinalizeFromMarkdig(_source.ToString());
+        else
+            _parser.Reparse(_source.ToString(), streamComplete: false);
         DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 

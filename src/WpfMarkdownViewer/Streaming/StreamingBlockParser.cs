@@ -1,4 +1,5 @@
 using WpfMarkdownViewer.Model;
+using WpfMarkdownViewer.Parsing;
 
 namespace WpfMarkdownViewer.Streaming;
 
@@ -22,6 +23,13 @@ public sealed class StreamingBlockParser
         var lines = SplitLines(source);
         Document.SetBlocks(Segment(source, lines, streamComplete));
     }
+
+    /// <summary>
+    /// Finalize the Document authoritatively from Markdig (ADR-0002). Replaces the streaming preview
+    /// with Markdig's parse; every Block is finalized. Called when the stream completes.
+    /// </summary>
+    public void FinalizeFromMarkdig(string source) =>
+        Document.SetBlocks(MarkdigBlockReader.Read(source));
 
     internal readonly record struct SourceLine(int Start, string Text, bool HasNewline);
 
