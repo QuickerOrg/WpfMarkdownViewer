@@ -34,7 +34,7 @@ internal sealed class TableView : Panel, ISelectableText
     public TableView(TableBlock table, MarkdownStyle theme, Action<string>? onLink = null)
     {
         _theme = theme;
-        var rows = Parse(table.RawText);
+        var rows = Parse(table.RawText, out var alignments);
         _rows = rows.Count;
         _cols = rows.Count == 0 ? 0 : rows.Max(r => r.Count);
         _plain = string.Join("\n", rows.Select(r => string.Join("\t", r)));
@@ -48,7 +48,8 @@ internal sealed class TableView : Panel, ISelectableText
                 string text = c < rows[r].Count ? rows[r][c] : string.Empty;
                 InternalChildren.Add(new ParagraphView(
                     InlineProjector.Project(text), theme, theme.EmSize,
-                    header ? FontWeights.Bold : FontWeights.Normal, lineHeightFactor: 1.4, onLink: onLink));
+                    header ? FontWeights.Bold : FontWeights.Normal, lineHeightFactor: 1.4, onLink: onLink,
+                    alignment: c < alignments.Count ? alignments[c] : TextAlignment.Left));
             }
         }
     }
@@ -177,8 +178,9 @@ internal sealed class TableView : Panel, ISelectableText
         return sb.ToString();
     }
 
-    private static List<List<string>> Parse(string raw)
+    private static List<List<string>> Parse(string raw, out List<TextAlignment> alignments)
     {
+        alignments = new List<TextAlignment>();
         var rows = new List<List<string>>();
         foreach (string line in raw.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
         {
@@ -193,8 +195,20 @@ internal sealed class TableView : Panel, ISelectableText
         }
 
         if (rows.Count >= 2 && IsDelimiterRow(rows[1]))
+        {
+            alignments = rows[1].Select(AlignmentOf).ToList();
             rows.RemoveAt(1);
+        }
         return rows;
+    }
+
+    // GFM column alignment from the delimiter cell: ":--" left, ":-:" center, "--:" right.
+    private static TextAlignment AlignmentOf(string cell)
+    {
+        string t = cell.Trim();
+        bool left = t.StartsWith(':');
+        bool right = t.EndsWith(':');
+        return left && right ? TextAlignment.Center : right ? TextAlignment.Right : TextAlignment.Left;
     }
 
     private static bool IsDelimiterRow(List<string> cells) =>

@@ -32,10 +32,12 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
     private int _selStart = -1;
     private int _selEnd = -1;
 
+    private readonly TextAlignment _alignment;
+
     public ParagraphView(InlineProjection projection, MarkdownStyle theme,
         double emSize, FontWeight weight, Brush? background = null, Thickness padding = default,
         bool monospace = false, double lineHeightFactor = 1.55, Action<string>? onLink = null,
-        string markdownPrefix = "")
+        string markdownPrefix = "", TextAlignment alignment = TextAlignment.Left)
     {
         _projection = projection;
         _theme = theme;
@@ -47,6 +49,7 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
         _lineHeightFactor = lineHeightFactor;
         _onLink = onLink;
         _markdownPrefix = markdownPrefix;
+        _alignment = alignment;
     }
 
     public string MarkdownLinePrefix => _markdownPrefix;
@@ -66,7 +69,7 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
         var defaultFamily = _monospace ? _theme.MonoTypeface.FontFamily : _theme.BaseTypeface.FontFamily;
         var defaultTypeface = new Typeface(defaultFamily, FontStyles.Normal, _weight, FontStretches.Normal);
         var defaultProps = new InlineRunProperties(defaultTypeface, _emSize, _theme.Foreground, null, null);
-        var paraProps = new InlineParagraphProperties(defaultProps, LineHeight);
+        var paraProps = new InlineParagraphProperties(defaultProps, LineHeight, _alignment);
 
         var formatter = _formatter ??= TextFormatter.Create();
         double height = 0, maxWidth = 0;

@@ -8,12 +8,15 @@ using WpfMarkdownViewer.Streaming;
 namespace WpfMarkdownViewer.Rendering;
 
 /// <summary>
-/// A self-drawn list: each item is a wrapped <see cref="ParagraphView"/> on its own line with a bullet
-/// (unordered) or number (ordered) drawn in the gutter. M1 renders a flat list; nesting is later.
+/// A self-drawn list: each item is a wrapped <see cref="ParagraphView"/> with a bullet (unordered) or number
+/// (ordered) drawn in its gutter. Nested items are detected by leading indentation and rendered at a deeper
+/// indent with a level-specific bullet; ordered/unordered and the number are read per line, so mixed nesting
+/// works even though the whole list is one Block.
 /// </summary>
 internal sealed class ListView : Panel
 {
     private const double ItemSpacing = 2;
+    private static readonly string[] Bullets = { "•", "◦", "▪" };
 
     private readonly MarkdownStyle _theme;
     private readonly List<Marker> _markers = new();
@@ -24,38 +27,40 @@ internal sealed class ListView : Panel
     public ListView(ListBlock list, MarkdownStyle theme, Action<string>? onLink = null)
     {
         _theme = theme;
-        int n = 1;
         foreach (var item in ParseItems(list.RawText))
         {
-            _markers.Add(item.IsTask
-                ? new Marker(null, IsTask: true, item.Checked)
-                : new Marker(list.Ordered ? $"{n}." : "•", IsTask: false, Checked: false));
             string mdPrefix = item.IsTask
                 ? (item.Checked ? "- [x] " : "- [ ] ")
-                : list.Ordered ? $"{n}. " : "- ";
+                : item.Ordered ? $"{item.Number}. " : "- ";
+            _markers.Add(item.IsTask
+                ? new Marker(item.Level, null, IsTask: true, item.Checked)
+                : new Marker(item.Level, item.Ordered ? $"{item.Number}." : Bullets[item.Level % Bullets.Length], IsTask: false, Checked: false));
             InternalChildren.Add(new ParagraphView(
                 InlineProjector.Project(item.Content), theme, theme.EmSize, FontWeights.Normal,
                 lineHeightFactor: theme.ListLineHeight, onLink: onLink, markdownPrefix: mdPrefix));
-            n++;
         }
     }
 
-    private readonly record struct Item(string Content, bool IsTask, bool Checked);
+    private readonly record struct Item(string Content, int Level, bool Ordered, int Number, bool IsTask, bool Checked);
 
-    private readonly record struct Marker(string? Text, bool IsTask, bool Checked);
+    private readonly record struct Marker(int Level, string? Text, bool IsTask, bool Checked);
+
+    private double IndentFor(int level) => Indent * (level + 1);
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        double contentW = Math.Max(1, (double.IsInfinity(availableSize.Width) ? 800 : availableSize.Width) - Indent);
+        double avail = double.IsInfinity(availableSize.Width) ? 800 : availableSize.Width;
         double y = 0, maxChildW = 0;
-        foreach (UIElement child in InternalChildren)
+        for (int i = 0; i < InternalChildren.Count; i++)
         {
-            child.Measure(new Size(contentW, double.PositiveInfinity));
+            double indent = IndentFor(_markers[i].Level);
+            var child = InternalChildren[i];
+            child.Measure(new Size(Math.Max(1, avail - indent), double.PositiveInfinity));
             y += child.DesiredSize.Height + ItemSpacing;
-            maxChildW = Math.Max(maxChildW, child.DesiredSize.Width);
+            maxChildW = Math.Max(maxChildW, indent + child.DesiredSize.Width);
         }
         double height = y > 0 ? y - ItemSpacing : 0;
-        double width = double.IsInfinity(availableSize.Width) ? maxChildW + Indent : availableSize.Width;
+        double width = double.IsInfinity(availableSize.Width) ? maxChildW : availableSize.Width;
         return new Size(width, height);
     }
 
@@ -63,11 +68,12 @@ internal sealed class ListView : Panel
     {
         _itemTops.Clear();
         double y = 0;
-        double childW = Math.Max(0, finalSize.Width - Indent);
-        foreach (UIElement child in InternalChildren)
+        for (int i = 0; i < InternalChildren.Count; i++)
         {
+            double indent = IndentFor(_markers[i].Level);
+            var child = InternalChildren[i];
             _itemTops.Add(y);
-            child.Arrange(new Rect(Indent, y, childW, child.DesiredSize.Height));
+            child.Arrange(new Rect(indent, y, Math.Max(0, finalSize.Width - indent), child.DesiredSize.Height));
             y += child.DesiredSize.Height + ItemSpacing;
         }
         return finalSize;
@@ -81,25 +87,26 @@ internal sealed class ListView : Panel
         for (int i = 0; i < _markers.Count && i < _itemTops.Count; i++)
         {
             var m = _markers[i];
+            double gutter = IndentFor(m.Level);
             if (m.IsTask)
             {
-                DrawCheckbox(dc, _itemTops[i], m.Checked);
+                DrawCheckbox(dc, gutter, _itemTops[i], m.Checked);
             }
             else
             {
                 var marker = new FormattedText(m.Text!, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                     _theme.BaseTypeface, _theme.EmSize, _theme.Foreground, dpi);
-                dc.DrawText(marker, new Point(Indent - 18, _itemTops[i]));
+                dc.DrawText(marker, new Point(gutter - 18, _itemTops[i]));
             }
         }
     }
 
     /// <summary>Self-drawn checkbox (uniform box; accent fill + check when checked) so it matches the unchecked box and never overlaps the text.</summary>
-    private void DrawCheckbox(DrawingContext dc, double itemTop, bool isChecked)
+    private void DrawCheckbox(DrawingContext dc, double gutter, double itemTop, bool isChecked)
     {
         double size = Math.Round(_theme.EmSize * 0.92);
         double lineHeight = _theme.EmSize * _theme.ListLineHeight;
-        double bx = Indent - 6 - size;
+        double bx = gutter - 6 - size;
         double by = itemTop + (lineHeight - size) / 2;
         var rect = new Rect(bx, by, size, size);
 
@@ -112,11 +119,8 @@ internal sealed class ListView : Panel
                 EndLineCap = PenLineCap.Round,
                 LineJoin = PenLineJoin.Round,
             };
-            var p0 = new Point(bx + size * 0.24, by + size * 0.52);
-            var p1 = new Point(bx + size * 0.42, by + size * 0.70);
-            var p2 = new Point(bx + size * 0.76, by + size * 0.30);
-            dc.DrawLine(check, p0, p1);
-            dc.DrawLine(check, p1, p2);
+            dc.DrawLine(check, new Point(bx + size * 0.24, by + size * 0.52), new Point(bx + size * 0.42, by + size * 0.70));
+            dc.DrawLine(check, new Point(bx + size * 0.42, by + size * 0.70), new Point(bx + size * 0.76, by + size * 0.30));
         }
         else
         {
@@ -126,11 +130,17 @@ internal sealed class ListView : Panel
 
     private static IEnumerable<Item> ParseItems(string raw)
     {
+        var indentStack = new List<int>(); // leading-indent columns that start each nesting level
         foreach (string line in raw.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
         {
             if (string.IsNullOrWhiteSpace(line))
                 continue;
+
+            int indent = LeadingColumns(line);
             string t = line.TrimStart();
+
+            bool ordered = false;
+            int number = 1;
             string content;
             if (t.Length >= 2 && (t[0] is '-' or '*' or '+') && t[1] == ' ')
             {
@@ -141,14 +151,41 @@ internal sealed class ListView : Panel
                 int d = 0;
                 while (d < t.Length && char.IsAsciiDigit(t[d]))
                     d++;
-                content = d > 0 && d < t.Length && (t[d] is '.' or ')') ? t[(d + 1)..].Trim() : t.Trim();
+                if (d > 0 && d < t.Length && (t[d] is '.' or ')'))
+                {
+                    ordered = true;
+                    number = int.TryParse(t[..d], out int parsed) ? parsed : 1;
+                    content = t[(d + 1)..].Trim();
+                }
+                else
+                {
+                    content = t.Trim();
+                }
             }
 
-            // Task marker: [ ] / [x] / [X] at the start of the item content.
+            // Nesting level from indentation (stack of indent thresholds).
+            while (indentStack.Count > 0 && indentStack[^1] > indent)
+                indentStack.RemoveAt(indentStack.Count - 1);
+            if (indentStack.Count == 0 || indentStack[^1] < indent)
+                indentStack.Add(indent);
+            int level = indentStack.Count - 1;
+
             if (content.Length >= 3 && content[0] == '[' && content[2] == ']' && (content[1] is ' ' or 'x' or 'X'))
-                yield return new Item(content[3..].TrimStart(), IsTask: true, Checked: content[1] is 'x' or 'X');
+                yield return new Item(content[3..].TrimStart(), level, ordered, number, IsTask: true, Checked: content[1] is 'x' or 'X');
             else
-                yield return new Item(content, IsTask: false, Checked: false);
+                yield return new Item(content, level, ordered, number, IsTask: false, Checked: false);
         }
+    }
+
+    private static int LeadingColumns(string line)
+    {
+        int col = 0;
+        foreach (char c in line)
+        {
+            if (c == ' ') col++;
+            else if (c == '\t') col += 4;
+            else break;
+        }
+        return col;
     }
 }
