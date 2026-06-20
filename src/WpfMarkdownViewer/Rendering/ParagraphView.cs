@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using WpfMarkdownViewer.Model;
@@ -8,7 +9,7 @@ namespace WpfMarkdownViewer.Rendering;
 /// <summary>
 /// A self-drawn block of wrapped text (ADR-0005): lays out an <see cref="InlineProjection"/> with WPF's
 /// TextFormatter and draws the resulting lines in <see cref="OnRender"/>. Used for paragraphs, headings,
-/// and (with a monospace projection + background) the M1 code box before TextMate highlighting (phase D3).
+/// list items, quotes, and (monospace) the code box. Maps clicks back to a link target via hit-testing.
 /// </summary>
 internal sealed class ParagraphView : FrameworkElement
 {
@@ -18,6 +19,8 @@ internal sealed class ParagraphView : FrameworkElement
     private readonly Brush? _background;
     private readonly Thickness _padding;
     private readonly bool _monospace;
+    private readonly double _lineHeightFactor;
+    private readonly Action<string>? _onLink;
     private readonly List<TextLine> _lines = new();
 
     // Kept for the lifetime of the view: the TextLines drawn in OnRender depend on this formatter's
@@ -27,7 +30,8 @@ internal sealed class ParagraphView : FrameworkElement
     private InlineProjection _projection;
 
     public ParagraphView(InlineProjection projection, TextRenderTheme theme,
-        double emSize, FontWeight weight, Brush? background = null, Thickness padding = default, bool monospace = false)
+        double emSize, FontWeight weight, Brush? background = null, Thickness padding = default,
+        bool monospace = false, double lineHeightFactor = 1.55, Action<string>? onLink = null)
     {
         _projection = projection;
         _theme = theme;
@@ -36,15 +40,11 @@ internal sealed class ParagraphView : FrameworkElement
         _background = background;
         _padding = padding;
         _monospace = monospace;
+        _lineHeightFactor = lineHeightFactor;
+        _onLink = onLink;
     }
 
-    /// <summary>Replace the projection (used when the Active Block grows) and re-layout.</summary>
-    public void Update(InlineProjection projection)
-    {
-        _projection = projection;
-        InvalidateMeasure();
-        InvalidateVisual();
-    }
+    private double LineHeight => _emSize * _lineHeightFactor;
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -59,7 +59,7 @@ internal sealed class ParagraphView : FrameworkElement
         var defaultFamily = _monospace ? _theme.MonoTypeface.FontFamily : _theme.BaseTypeface.FontFamily;
         var defaultTypeface = new Typeface(defaultFamily, FontStyles.Normal, _weight, FontStretches.Normal);
         var defaultProps = new InlineRunProperties(defaultTypeface, _emSize, _theme.Foreground, null, null);
-        var paraProps = new InlineParagraphProperties(defaultProps);
+        var paraProps = new InlineParagraphProperties(defaultProps, LineHeight);
 
         var formatter = _formatter ??= TextFormatter.Create();
         double height = 0, maxWidth = 0;
@@ -102,6 +102,45 @@ internal sealed class ParagraphView : FrameworkElement
             line.Draw(dc, new Point(_padding.Left, y), InvertAxes.None);
             y += line.Height;
         }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        Cursor = LinkAt(e.GetPosition(this)) is not null ? Cursors.Hand : null;
+        base.OnMouseMove(e);
+    }
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        if (_onLink is not null && LinkAt(e.GetPosition(this)) is { } url)
+        {
+            _onLink(url);
+            e.Handled = true;
+        }
+        base.OnMouseLeftButtonDown(e);
+    }
+
+    /// <summary>Map a point to the link target of the Inline Run under it, or null.</summary>
+    private string? LinkAt(Point p)
+    {
+        if (_lines.Count == 0 || _projection.Runs.Count == 0)
+            return null;
+
+        double y = _padding.Top;
+        foreach (var line in _lines)
+        {
+            if (p.Y >= y && p.Y < y + line.Height)
+            {
+                var hit = line.GetCharacterHitFromDistance(p.X - _padding.Left);
+                int index = hit.FirstCharacterIndex;
+                foreach (var run in _projection.Runs)
+                    if (run.LinkTarget is not null && index >= run.VisibleStart && index < run.VisibleEnd)
+                        return run.LinkTarget;
+                return null;
+            }
+            y += line.Height;
+        }
+        return null;
     }
 
     private void ClearLines()

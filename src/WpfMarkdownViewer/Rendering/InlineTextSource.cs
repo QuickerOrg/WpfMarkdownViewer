@@ -138,13 +138,17 @@ internal sealed class InlineRunProperties : TextRunProperties
 
 internal sealed class InlineParagraphProperties : TextParagraphProperties
 {
-    public InlineParagraphProperties(TextRunProperties defaultProps) => DefaultTextRunProperties = defaultProps;
+    public InlineParagraphProperties(TextRunProperties defaultProps, double lineHeight)
+    {
+        DefaultTextRunProperties = defaultProps;
+        LineHeight = lineHeight;
+    }
 
     public override FlowDirection FlowDirection => FlowDirection.LeftToRight;
     public override TextAlignment TextAlignment => TextAlignment.Left;
     public override bool FirstLineInParagraph => false;
-    public override double LineHeight => 0;
-    public override bool AlwaysCollapsible => false;
+    public override double LineHeight { get; }
+    public override bool AlwaysCollapsible => true;
     public override TextRunProperties DefaultTextRunProperties { get; }
     public override TextWrapping TextWrapping => TextWrapping.Wrap;
     public override TextMarkerProperties? TextMarkerProperties => null;

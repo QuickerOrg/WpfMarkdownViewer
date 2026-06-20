@@ -40,3 +40,9 @@ public sealed class QuoteBlock : MdBlock
 {
     public override BlockKind Kind => BlockKind.Quote;
 }
+
+/// <summary>A GitHub-flavored pipe table.</summary>
+public sealed class TableBlock : MdBlock
+{
+    public override BlockKind Kind => BlockKind.Table;
+}

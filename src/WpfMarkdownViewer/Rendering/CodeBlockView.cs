@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using WpfMarkdownViewer.Highlighting;
 
 namespace WpfMarkdownViewer.Rendering;
@@ -30,6 +31,8 @@ internal sealed class CodeBlockView : FrameworkElement
     private readonly List<FormattedText> _formatted = new();
 
     private Rect _copyRect;
+    private bool _copied;
+    private DispatcherTimer? _resetTimer;
 
     public CodeBlockView(string code, string? language, IReadOnlyList<IReadOnlyList<ColoredSpan>> lines, TextRenderTheme theme)
     {
@@ -95,8 +98,9 @@ internal sealed class CodeBlockView : FrameworkElement
             _theme.BaseTypeface, 12, SubtleBrush, dpi);
         dc.DrawText(label, new Point(PadX, (HeaderHeight - label.Height) / 2));
 
-        var copy = new FormattedText("复制", CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            _theme.BaseTypeface, 12, _theme.LinkBrush, dpi);
+        string copyLabel = _copied ? "已复制" : "复制";
+        var copy = new FormattedText(copyLabel, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            _theme.BaseTypeface, 12, _copied ? SubtleBrush : _theme.LinkBrush, dpi);
         double cx = w - PadX - copy.Width;
         dc.DrawText(copy, new Point(cx, (HeaderHeight - copy.Height) / 2));
         _copyRect = new Rect(cx - 6, 0, copy.Width + 12, HeaderHeight);
@@ -109,14 +113,44 @@ internal sealed class CodeBlockView : FrameworkElement
         }
     }
 
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        Cursor = _copyRect.Contains(e.GetPosition(this)) ? Cursors.Hand : null;
+        base.OnMouseMove(e);
+    }
+
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         if (_copyRect.Contains(e.GetPosition(this)))
         {
-            try { Clipboard.SetText(_code); } catch { /* clipboard may be locked */ }
+            try
+            {
+                Clipboard.SetText(_code);
+                ShowCopied();
+            }
+            catch { /* clipboard may be locked by another process */ }
             e.Handled = true;
         }
         base.OnMouseLeftButtonDown(e);
+    }
+
+    private void ShowCopied()
+    {
+        _copied = true;
+        InvalidateVisual();
+
+        _resetTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+        _resetTimer.Stop();
+        _resetTimer.Tick -= OnResetTick;
+        _resetTimer.Tick += OnResetTick;
+        _resetTimer.Start();
+    }
+
+    private void OnResetTick(object? sender, EventArgs e)
+    {
+        _resetTimer!.Stop();
+        _copied = false;
+        InvalidateVisual();
     }
 
     private static Brush BrushFor(string hex)

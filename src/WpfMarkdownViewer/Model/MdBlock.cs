@@ -10,6 +10,7 @@ public enum BlockKind
     Code,
     List,
     Quote,
+    Table,
 }
 
 /// <summary>

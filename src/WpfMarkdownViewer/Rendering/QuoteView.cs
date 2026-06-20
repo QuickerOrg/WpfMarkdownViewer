@@ -16,11 +16,12 @@ internal sealed class QuoteView : Panel
 
     private readonly TextRenderTheme _theme;
 
-    public QuoteView(QuoteBlock quote, TextRenderTheme theme)
+    public QuoteView(QuoteBlock quote, TextRenderTheme theme, Action<string>? onLink = null)
     {
         _theme = theme;
         InternalChildren.Add(new ParagraphView(
-            InlineProjector.Project(StripQuoteMarkers(quote.RawText)), theme, theme.EmSize, FontWeights.Normal));
+            InlineProjector.Project(StripQuoteMarkers(quote.RawText)), theme, theme.EmSize, FontWeights.Normal,
+            lineHeightFactor: 1.55, onLink: onLink));
     }
 
     protected override Size MeasureOverride(Size availableSize)

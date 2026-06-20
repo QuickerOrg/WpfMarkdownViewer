@@ -100,6 +100,15 @@ public sealed class StreamingBlockParser
                 i = j;
                 ownClosed = false;
             }
+            else if (LooksLikeTable(lines, i))
+            {
+                int j = i + 2; // header + delimiter already confirmed
+                while (j < lines.Count && !IsBlank(lines[j].Text) && lines[j].Text.Contains('|'))
+                    j++;
+                block = new TableBlock();
+                i = j;
+                ownClosed = false;
+            }
             else if (IsListItem(firstLine))
             {
                 int j = i;
@@ -206,6 +215,27 @@ public sealed class StreamingBlockParser
     {
         int k = LeadingSpaces(text, 3);
         return k < text.Length && text[k] == '>';
+    }
+
+    private static bool LooksLikeTable(List<SourceLine> lines, int i) =>
+        lines[i].Text.Contains('|')
+        && i + 1 < lines.Count
+        && IsTableDelimiterRow(lines[i + 1].Text);
+
+    private static bool IsTableDelimiterRow(string text)
+    {
+        string t = text.Trim();
+        if (t.Length == 0)
+            return false;
+        bool hasDash = false;
+        foreach (char ch in t)
+        {
+            if (ch == '-')
+                hasDash = true;
+            else if (ch is not ('|' or ':' or ' '))
+                return false;
+        }
+        return hasDash;
     }
 
     internal static bool IsListItem(string text)

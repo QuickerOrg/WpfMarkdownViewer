@@ -32,6 +32,7 @@ public static class MarkdigBlockReader
             Md.FencedCodeBlock f => new CodeBlock { Language = Empty(f.Info), FenceClosed = true },
             Md.CodeBlock => new CodeBlock { FenceClosed = true },
             Md.QuoteBlock => new QuoteBlock(),
+            Markdig.Extensions.Tables.Table => new TableBlock(),
             Md.ListBlock l => new ListBlock { Ordered = l.IsOrdered },
             Md.ParagraphBlock => new ParagraphBlock(),
             _ => new ParagraphBlock(), // M1 minimal set: anything else is treated as a paragraph.

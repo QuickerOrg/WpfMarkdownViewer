@@ -18,21 +18,25 @@ internal static class BlockViewFactory
     private static CodeHighlighter HighlighterFor(ThemeName theme) =>
         Highlighters.GetOrAdd(theme, t => new CodeHighlighter(t));
 
-    public static FrameworkElement Create(MdBlock block, TextRenderTheme theme) => block switch
+    public static FrameworkElement Create(MdBlock block, TextRenderTheme theme, Action<string>? onLink = null) => block switch
     {
         HeadingBlock h => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(h)), theme,
-            emSize: HeadingEm(h.Level, theme.EmSize), weight: FontWeights.Bold),
+            emSize: HeadingEm(h.Level, theme.EmSize), weight: FontWeights.Bold,
+            lineHeightFactor: 1.3, onLink: onLink),
 
         CodeBlock c => CreateCodeView(c, theme),
 
-        ListBlock l => new ListView(l, theme),
+        TableBlock t => new TableView(t, theme, onLink),
 
-        QuoteBlock q => new QuoteView(q, theme),
+        ListBlock l => new ListView(l, theme, onLink),
+
+        QuoteBlock q => new QuoteView(q, theme, onLink),
 
         _ => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(block)), theme,
-            emSize: theme.EmSize, weight: FontWeights.Normal),
+            emSize: theme.EmSize, weight: FontWeights.Normal,
+            lineHeightFactor: 1.6, onLink: onLink),
     };
 
     private static FrameworkElement CreateCodeView(CodeBlock c, TextRenderTheme theme)

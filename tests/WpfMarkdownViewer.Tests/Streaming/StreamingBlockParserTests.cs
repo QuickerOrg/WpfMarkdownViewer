@@ -142,6 +142,22 @@ public class StreamingBlockParserTests
     }
 
     [Fact]
+    public void Table_IsRecognizedWhenDelimiterRowPresent()
+    {
+        var doc = Parse("| a | b |\n| - | - |\n| 1 | 2 |").Document;
+
+        Assert.Equal(BlockKind.Table, Assert.Single(doc.Blocks).Kind);
+    }
+
+    [Fact]
+    public void PipeRow_WithoutDelimiter_IsNotATable()
+    {
+        var doc = Parse("| a | b |\njust text").Document;
+
+        Assert.Equal(BlockKind.Paragraph, doc.Blocks[0].Kind);
+    }
+
+    [Fact]
     public void StreamComplete_FinalizesTheTrailingBlock()
     {
         var doc = Parse("still typing", complete: true).Document;

@@ -31,7 +31,7 @@ public sealed class LinkClickedEventArgs : EventArgs
 public class MarkdownDocumentView : Panel
 {
     private const double Pad = 16;
-    private const double BlockSpacing = 10;
+    private const double BlockSpacing = 14;
 
     private readonly ConcurrentQueue<string> _incoming = new();
     private readonly StringBuilder _source = new();
@@ -176,7 +176,7 @@ public class MarkdownDocumentView : Panel
             InternalChildren.RemoveAt(InternalChildren.Count - 1);
 
         for (int i = _stableCount; i < blocks.Count; i++)
-            InternalChildren.Add(BlockViewFactory.Create(blocks[i], _theme));
+            InternalChildren.Add(BlockViewFactory.Create(blocks[i], _theme, RaiseLink));
 
         int stable = 0;
         while (stable < blocks.Count && blocks[stable].IsFinalized)
@@ -217,6 +217,8 @@ public class MarkdownDocumentView : Panel
 
     /// <summary>Drive a single synchronous flush. Test/host hook so streaming can be advanced deterministically.</summary>
     internal void FlushForTest() => Flush();
+
+    private void RaiseLink(string url) => OnLinkClicked(url);
 
     protected virtual void OnLinkClicked(string url) =>
         LinkClicked?.Invoke(this, new LinkClickedEventArgs(url));
