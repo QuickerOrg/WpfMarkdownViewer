@@ -160,7 +160,7 @@ public partial class MainWindow : Window
                 "- 若存在因子，必有一个 ≤ √n\n\n" +
                 "| 输入 | 输出 |\n| --- | --- |\n| 7 | true |\n| 9 | false |"),
             (ChatRole.User, "时间复杂度是多少？"),
-            (ChatRole.Assistant, "时间复杂度 $O(\\sqrt{n})$，空间复杂度 $O(1)$ —— 对单次判断已经足够快。"),
+            (ChatRole.Assistant, "时间复杂度 \\(O(\\sqrt{n})\\)，空间复杂度 \\(O(1)\\) —— 对单次判断已经足够快。"),
         };
         _turn = 0;
         StatusText.Text = "对话流式中…";

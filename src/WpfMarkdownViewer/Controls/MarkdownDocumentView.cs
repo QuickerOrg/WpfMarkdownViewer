@@ -207,11 +207,14 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
         if (!changed)
             return;
 
+        // Normalize \(…\) / \[…\] to $…$ / $$…$$ so math works regardless of which delimiter the model emits.
+        string text = MathDelimiters.Normalize(_source.ToString());
+
         // Streaming → best-effort preview; on completion → Markdig is authoritative (ADR-0002).
         if (_completed)
-            _parser.FinalizeFromMarkdig(_source.ToString());
+            _parser.FinalizeFromMarkdig(text);
         else
-            _parser.Reparse(_source.ToString(), streamComplete: false);
+            _parser.Reparse(text, streamComplete: false);
 
         Render();
         DocumentChanged?.Invoke(this, EventArgs.Empty);
