@@ -189,6 +189,40 @@ public class ConversationViewTests
         Assert.Contains("streaming tail", view.MessageTextForTest(view.MessageCount - 1));
     }
 
+    // --- Cross-message selection ---
+
+    private static void Lay(ConversationView view) // realize + arrange so selectable leaves and transforms exist
+    {
+        view.Measure(new Size(600, double.PositiveInfinity));
+        view.Arrange(new Rect(0, 0, 600, 4000));
+        view.UpdateLayout();
+    }
+
+    [WpfFact]
+    public void Selectables_SpanAllMessages_InTopToBottomOrder()
+    {
+        var view = new ConversationView();
+        view.AddMessage(ChatRole.User, "alpha");
+        view.AddMessage(ChatRole.Assistant, "beta\n\ngamma");
+        Lay(view);
+
+        Assert.Equal(new[] { "alpha", "beta", "gamma" }, view.SelectableTextsForTest());
+    }
+
+    [WpfFact]
+    public void Selection_AcrossMessageBoundary_CopiesBothMessages()
+    {
+        var view = new ConversationView();
+        view.AddMessage(ChatRole.User, "question");
+        view.AddMessage(ChatRole.Assistant, "answer");
+        Lay(view);
+
+        // Drag from inside the user message into the assistant message.
+        string md = view.SelectAcrossAndGetMarkdownForTest(0, 3, 1, 6);
+
+        Assert.Equal("stion\nanswer", md);
+    }
+
     [WpfFact]
     public void ApplyTheme_KeepsMessagesAndContent()
     {

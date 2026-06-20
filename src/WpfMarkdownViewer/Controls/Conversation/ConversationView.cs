@@ -1,6 +1,7 @@
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using WpfMarkdownViewer.Rendering;
 
@@ -47,9 +48,15 @@ public class ConversationView : Panel, IVirtualizingContent
     private double _viewportTop;
     private double _viewportHeight; // 0 ⇒ no Scroll Host connected
 
+    // One controller spanning every message's text leaves, so a drag selects across message boundaries (ADR-0008).
+    private readonly SelectionController _selection;
+
     public ConversationView()
     {
         Background = _style.Background;
+        Focusable = true;
+        _selection = new SelectionController(this);
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, _) => CopySelection()));
     }
 
     /// <summary>XAML content sink placeholder so the control can be declared with no children. Not used in code.</summary>
@@ -167,6 +174,7 @@ public class ConversationView : Panel, IVirtualizingContent
             MarkdownStyle = StyleForRole(slot.Role),
             VirtualizationEnabled = VirtualizationEnabled,
             ShrinkToContentWidth = slot.Role == ChatRole.User, // user bubbles hug their content
+            SelectionEnabled = false, // the shell owns one selection spanning all messages
         };
         view.LinkClicked += OnChildLinkClicked;
         slot.View = view;
@@ -216,6 +224,43 @@ public class ConversationView : Panel, IVirtualizingContent
         _viewportHeight = height;
         InvalidateMeasure();
     }
+
+    // --- Cross-message selection (ADR-0008): one controller over every realized message's text leaves ---
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        if (e.Handled) // a link or code-copy button inside a message handled it
+            return;
+        if (_selection.Begin(e.GetPosition(this)))
+        {
+            Focus();
+            CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_selection.IsDragging)
+            _selection.Update(e.GetPosition(this));
+    }
+
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonUp(e);
+        if (!_selection.IsDragging)
+            return;
+        _selection.End();
+        ReleaseMouseCapture();
+    }
+
+    /// <summary>Select all text across every realized message.</summary>
+    public void SelectAll() => _selection.SelectAll();
+
+    /// <summary>Copy the current cross-message selection as plain-text Markdown.</summary>
+    public void CopySelection() => _selection.Copy();
 
     // --- Layout ---
 
@@ -289,6 +334,11 @@ public class ConversationView : Panel, IVirtualizingContent
     // --- Test hooks ---
 
     internal int RealizedCountForTest => _slots.Count(s => s.View is not null);
+
+    internal IReadOnlyList<string> SelectableTextsForTest() => _selection.SelectableTexts();
+
+    internal string SelectAcrossAndGetMarkdownForTest(int segA, int offA, int segB, int offB) =>
+        _selection.SelectAndGetMarkdown(segA, offA, segB, offB);
 
     internal void FlushActiveForTest() => ActiveSlot()?.View?.FlushForTest();
 

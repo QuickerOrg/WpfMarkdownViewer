@@ -90,6 +90,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
     {
         Background = _theme.Background;
         Focusable = true;
+        _selection = new SelectionController(this);
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, _) => CopySelection()));
         _pump = new DispatcherTimer(DispatcherPriority.Background) { Interval = _policy.MidInterval };
         _pump.Tick += OnPumpTick;
@@ -331,254 +332,55 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
 
     private void RaiseLink(string url) => OnLinkClicked(url);
 
-    // --- Selection (ADR-0008): document-level drag-select over ParagraphView text leaves ---
+    // --- Selection (ADR-0008): document-level drag-select, delegated to the shared SelectionController.
+    // Disabled when hosted in a Conversation Shell, which runs one controller spanning all messages. ---
 
-    private readonly List<ISelectableText> _selectables = new();
-    private (int Segment, int Offset) _anchor;
-    private (int Segment, int Offset) _focus;
-    private bool _selecting;
-    private bool _hasSelection;
+    private readonly SelectionController _selection;
+
+    /// <summary>When false the control ignores drag-selection (the host owns it, e.g. cross-message selection in the shell). Default true.</summary>
+    public bool SelectionEnabled { get; set; } = true;
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
-        if (e.Handled) // a child handled it (e.g. a link or the code copy button)
+        if (e.Handled || !SelectionEnabled) // a child handled it (link/copy button), or the host owns selection
             return;
-
-        RebuildSelectables();
-        if (_selectables.Count == 0)
-            return;
-
-        Focus();
-        _anchor = _focus = Locate(e.GetPosition(this));
-        _selecting = true;
-        ClearSelection();
-        CaptureMouse();
-        e.Handled = true;
+        if (_selection.Begin(e.GetPosition(this)))
+        {
+            Focus();
+            CaptureMouse();
+            e.Handled = true;
+        }
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (!_selecting)
-            return;
-        _focus = Locate(e.GetPosition(this));
-        ApplySelection();
+        if (_selection.IsDragging)
+            _selection.Update(e.GetPosition(this));
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
-        if (!_selecting)
+        if (!_selection.IsDragging)
             return;
-        _selecting = false;
+        _selection.End();
         ReleaseMouseCapture();
     }
 
-    private void RebuildSelectables()
-    {
-        _selectables.Clear();
-        CollectSelectables(this);
-    }
-
-    private void CollectSelectables(DependencyObject node)
-    {
-        int count = VisualTreeHelper.GetChildrenCount(node);
-        for (int i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(node, i);
-            if (child is ISelectableText selectable)
-                _selectables.Add(selectable);
-            else
-                CollectSelectables(child);
-        }
-    }
-
-    private (int Segment, int Offset) Locate(Point p)
-    {
-        for (int i = 0; i < _selectables.Count; i++)
-        {
-            var fe = (FrameworkElement)_selectables[i];
-            Point topLeft = fe.TransformToAncestor(this).Transform(new Point(0, 0));
-            if (p.Y <= topLeft.Y + fe.RenderSize.Height)
-            {
-                double localY = Math.Clamp(p.Y - topLeft.Y, 0, Math.Max(0, fe.RenderSize.Height - 1));
-                return (i, _selectables[i].OffsetAtPoint(new Point(p.X - topLeft.X, localY)));
-            }
-        }
-        int last = _selectables.Count - 1;
-        return (last, _selectables[last].SelectableText.Length);
-    }
-
-    private (int Lo, int LoOff, int Hi, int HiOff) OrderedSelection()
-    {
-        bool anchorFirst = _anchor.Segment < _focus.Segment
-            || (_anchor.Segment == _focus.Segment && _anchor.Offset <= _focus.Offset);
-        return anchorFirst
-            ? (_anchor.Segment, _anchor.Offset, _focus.Segment, _focus.Offset)
-            : (_focus.Segment, _focus.Offset, _anchor.Segment, _anchor.Offset);
-    }
-
-    private void ApplySelection()
-    {
-        var (lo, loOff, hi, hiOff) = OrderedSelection();
-        _hasSelection = lo != hi || loOff != hiOff;
-        for (int i = 0; i < _selectables.Count; i++)
-        {
-            if (i < lo || i > hi)
-                _selectables[i].SetSelectedRange(0, 0);
-            else if (lo == hi)
-                _selectables[i].SetSelectedRange(loOff, hiOff);
-            else if (i == lo)
-                _selectables[i].SetSelectedRange(loOff, _selectables[i].SelectableText.Length);
-            else if (i == hi)
-                _selectables[i].SetSelectedRange(0, hiOff);
-            else
-                _selectables[i].SetSelectedRange(0, _selectables[i].SelectableText.Length);
-        }
-    }
-
-    private void ClearSelection()
-    {
-        _hasSelection = false;
-        foreach (var s in _selectables)
-            s.SetSelectedRange(0, 0);
-    }
-
     /// <summary>Select all text and draw the highlight.</summary>
-    public void SelectAll()
-    {
-        RebuildSelectables();
-        if (_selectables.Count == 0)
-            return;
-        _anchor = (0, 0);
-        _focus = (_selectables.Count - 1, _selectables[^1].SelectableText.Length);
-        ApplySelection();
-    }
+    public void SelectAll() => _selection.SelectAll();
 
     /// <summary>Copy the current selection as plain-text Markdown only (the text IS the Markdown source, so it round-trips into any editor).</summary>
-    public void CopySelection()
-    {
-        if (!_hasSelection || _selectables.Count == 0)
-            return;
-        string markdown = BuildSelectedMarkdown();
-        if (markdown.Length == 0)
-            return;
-        try
-        {
-            var data = new DataObject();
-            data.SetText(markdown, TextDataFormat.UnicodeText);
-            Clipboard.SetDataObject(data, true);
-        }
-        catch { /* clipboard busy */ }
-    }
-
-    private IEnumerable<(int Index, IReadOnlyList<InlineRun> Runs)> SelectedRunsPerSegment()
-    {
-        var (lo, loOff, hi, hiOff) = OrderedSelection();
-        for (int i = lo; i <= hi; i++)
-        {
-            int s = i == lo ? loOff : 0;
-            int e = i == hi ? hiOff : _selectables[i].SelectableText.Length;
-            if (e > s)
-                yield return (i, _selectables[i].SelectedRuns(s, e));
-        }
-    }
-
-    private string BuildSelectedMarkdown()
-    {
-        var (lo, loOff, hi, hiOff) = OrderedSelection();
-        var sb = new StringBuilder();
-        bool prevBlock = false;
-        for (int i = lo; i <= hi; i++)
-        {
-            int s = i == lo ? loOff : 0;
-            int e = i == hi ? hiOff : _selectables[i].SelectableText.Length;
-            if (e <= s)
-                continue;
-
-            string piece;
-            bool block = false;
-            // Code blocks and tables rebuild their own block Markdown; ordinary text uses prefix + inline runs.
-            if (_selectables[i].SelectedBlockMarkdown(s, e) is { Length: > 0 } blockMd)
-            {
-                piece = blockMd;
-                block = true;
-            }
-            else
-            {
-                string prefix = i != lo || loOff == 0 ? _selectables[i].MarkdownLinePrefix : string.Empty;
-                piece = prefix + Streaming.RunSerializer.ToMarkdown(_selectables[i].SelectedRuns(s, e));
-            }
-
-            if (sb.Length > 0)
-                sb.Append(block || prevBlock ? "\n\n" : "\n"); // blank line around block elements
-            sb.Append(piece);
-            prevBlock = block;
-        }
-        return sb.ToString();
-    }
-
-    // Retained for the HTML test hook (ADR-0008 keeps the run→HTML mapping); no longer placed on the clipboard.
-    private string BuildSelectedHtml() =>
-        string.Join("<br>", SelectedRunsPerSegment().Select(x => Streaming.RunSerializer.ToHtml(x.Runs)));
-
-    private string BuildSelectedText()
-    {
-        if (!_hasSelection || _selectables.Count == 0)
-            return string.Empty;
-
-        var (lo, loOff, hi, hiOff) = OrderedSelection();
-        var sb = new StringBuilder();
-        for (int i = lo; i <= hi; i++)
-        {
-            string text = _selectables[i].SelectableText;
-            int s = i == lo ? loOff : 0;
-            int e = i == hi ? hiOff : text.Length;
-            if (e > s)
-            {
-                if (sb.Length > 0)
-                    sb.Append('\n');
-                sb.Append(text[s..e]);
-            }
-        }
-        return sb.ToString();
-    }
+    public void CopySelection() => _selection.Copy();
 
     // --- Test hooks ---
 
-    internal IReadOnlyList<string> SelectableTextsForTest()
-    {
-        RebuildSelectables();
-        return _selectables.Select(s => s.SelectableText).ToList();
-    }
-
-    internal string SelectAndGetTextForTest(int segA, int offA, int segB, int offB)
-    {
-        RebuildSelectables();
-        _anchor = (segA, offA);
-        _focus = (segB, offB);
-        ApplySelection();
-        return BuildSelectedText();
-    }
-
-    internal string SelectAndGetMarkdownForTest(int segA, int offA, int segB, int offB)
-    {
-        RebuildSelectables();
-        _anchor = (segA, offA);
-        _focus = (segB, offB);
-        ApplySelection();
-        return BuildSelectedMarkdown();
-    }
-
-    internal string SelectAndGetHtmlForTest(int segA, int offA, int segB, int offB)
-    {
-        RebuildSelectables();
-        _anchor = (segA, offA);
-        _focus = (segB, offB);
-        ApplySelection();
-        return BuildSelectedHtml();
-    }
+    internal IReadOnlyList<string> SelectableTextsForTest() => _selection.SelectableTexts();
+    internal string SelectAndGetTextForTest(int segA, int offA, int segB, int offB) => _selection.SelectAndGetText(segA, offA, segB, offB);
+    internal string SelectAndGetMarkdownForTest(int segA, int offA, int segB, int offB) => _selection.SelectAndGetMarkdown(segA, offA, segB, offB);
+    internal string SelectAndGetHtmlForTest(int segA, int offA, int segB, int offB) => _selection.SelectAndGetHtml(segA, offA, segB, offB);
 
     protected virtual void OnLinkClicked(string url) =>
         LinkClicked?.Invoke(this, new LinkClickedEventArgs(url));
