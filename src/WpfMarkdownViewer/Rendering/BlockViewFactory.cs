@@ -18,7 +18,7 @@ internal static class BlockViewFactory
     private static CodeHighlighter HighlighterFor(ThemeName theme) =>
         Highlighters.GetOrAdd(theme, t => new CodeHighlighter(t));
 
-    public static FrameworkElement Create(MdBlock block, MarkdownStyle theme, Action<string>? onLink = null) => block switch
+    public static FrameworkElement Create(MdBlock block, MarkdownStyle theme, Action<string>? onLink = null, string? imageBasePath = null) => block switch
     {
         HeadingBlock h => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(h)), theme,
@@ -32,7 +32,7 @@ internal static class BlockViewFactory
 
         ThematicBreakBlock => new HrView(theme),
 
-        ImageBlock img => new ImageView(img, theme),
+        ImageBlock img => new ImageView(img, theme, imageBasePath),
 
         MathBlock m => new MathView(m, theme),
 

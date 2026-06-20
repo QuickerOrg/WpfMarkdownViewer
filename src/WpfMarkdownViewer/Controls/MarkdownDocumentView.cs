@@ -70,6 +70,9 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
     /// <summary>When false, all Blocks stay realized (no virtualization) — e.g. for printing/snapshots. Default true.</summary>
     public bool VirtualizationEnabled { get; set; } = true;
 
+    /// <summary>Base path or URI for resolving relative image URLs (M2-4). Null ⇒ only absolute URLs load.</summary>
+    public string? ImageBasePath { get; set; }
+
     void IVirtualizingContent.SetViewport(double top, double height)
     {
         _viewportTop = top;
@@ -269,7 +272,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
                 || (slot.Y <= bufBottom && slot.Y + Math.Max(slot.Height, EstimatedBlockHeight) >= bufTop);
             if (onScreen && slot.View is null)
             {
-                slot.View = BlockViewFactory.Create(slot.Block, _theme, RaiseLink);
+                slot.View = BlockViewFactory.Create(slot.Block, _theme, RaiseLink, ImageBasePath);
                 InternalChildren.Add(slot.View);
             }
             else if (!onScreen && slot.View is { } v && slot.Finalized)

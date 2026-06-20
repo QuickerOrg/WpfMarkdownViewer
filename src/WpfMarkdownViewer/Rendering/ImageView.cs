@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -16,35 +17,51 @@ internal sealed class ImageView : FrameworkElement
     private const double PlaceholderHeight = 140;
     private const double PlaceholderWidth = 280;
 
-    private static readonly Dictionary<string, BitmapImage> Cache = new();
-
     private readonly string _url;
     private readonly string _alt;
+    private readonly string? _basePath;
     private readonly MarkdownStyle _theme;
 
+    private string _cacheKey = string.Empty;
     private BitmapImage? _bitmap;
     private bool _failed;
 
-    public ImageView(ImageBlock block, MarkdownStyle theme)
+    public ImageView(ImageBlock block, MarkdownStyle theme, string? basePath = null)
     {
         _url = block.Url;
         _alt = block.Alt;
+        _basePath = basePath;
         _theme = theme;
         BeginLoad();
     }
 
     private void BeginLoad()
     {
-        if (Cache.TryGetValue(_url, out var cached))
-        {
-            _bitmap = cached;
-            return;
-        }
-        if (!Uri.TryCreate(_url, UriKind.Absolute, out var uri))
+        var uri = Resolve(_url, _basePath);
+        if (uri is null)
         {
             _failed = true;
             return;
         }
+        _cacheKey = uri.ToString();
+
+        if (ImageCache.TryMemory(_cacheKey, out var mem))
+        {
+            _bitmap = mem;
+            return;
+        }
+
+        string cacheFile = ImageCache.FileFor(_cacheKey);
+        if (File.Exists(cacheFile))
+        {
+            try
+            {
+                OnLoaded(LoadFromFile(cacheFile));
+                return;
+            }
+            catch { /* fall through to re-fetch */ }
+        }
+
         try
         {
             var bmp = new BitmapImage();
@@ -55,12 +72,13 @@ internal sealed class ImageView : FrameworkElement
 
             if (bmp.IsDownloading)
             {
-                bmp.DownloadCompleted += (_, _) => OnLoaded(bmp);
+                bmp.DownloadCompleted += (_, _) => { ImageCache.Save(cacheFile, bmp); OnLoaded(bmp); };
                 bmp.DownloadFailed += (_, _) => OnFailed();
                 bmp.DecodeFailed += (_, _) => OnFailed();
             }
             else
             {
+                ImageCache.Save(cacheFile, bmp);
                 OnLoaded(bmp);
             }
         }
@@ -70,11 +88,40 @@ internal sealed class ImageView : FrameworkElement
         }
     }
 
+    private static BitmapImage LoadFromFile(string path)
+    {
+        var bmp = new BitmapImage();
+        bmp.BeginInit();
+        bmp.CacheOption = BitmapCacheOption.OnLoad;
+        bmp.UriSource = new Uri(path);
+        bmp.EndInit();
+        return bmp;
+    }
+
+    private static Uri? Resolve(string url, string? basePath)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var abs))
+            return abs;
+        if (string.IsNullOrEmpty(basePath))
+            return null;
+        if (Uri.TryCreate(basePath, UriKind.Absolute, out var baseUri) && baseUri.Scheme is "http" or "https")
+            return Uri.TryCreate(baseUri, url, out var combined) ? combined : null;
+        try
+        {
+            return new Uri(Path.GetFullPath(Path.Combine(basePath, url)));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private void OnLoaded(BitmapImage bmp)
     {
         if (bmp.CanFreeze)
             bmp.Freeze();
-        Cache[_url] = bmp;
+        if (_cacheKey.Length > 0)
+            ImageCache.PutMemory(_cacheKey, bmp);
         _bitmap = bmp;
         InvalidateMeasure();
         InvalidateVisual();
