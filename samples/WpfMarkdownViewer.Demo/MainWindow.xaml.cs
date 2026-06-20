@@ -138,6 +138,8 @@ public partial class MainWindow : Window
     private void SaveSnapshots()
     {
         Viewer.VirtualizationEnabled = false; // realize all so the full-content snapshot isn't virtualized
+        Host.ScrollToTop();                   // capture from the document top (sub/superscript live near the top)
+        Host.UpdateLayout();
         ApplyTheme(dark: false);
         Save("demo.png");
         Viewer.SelectAll();

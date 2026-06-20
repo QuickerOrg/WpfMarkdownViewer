@@ -70,12 +70,32 @@ internal sealed class InlineTextSource : TextSource
             : code ? _theme.InlineCodeBackground
             : null;
 
-        // Sub/superscript: smaller font (approximate; true baseline shift would need TextRunTypographyProperties).
-        double em = run.Style.HasFlag(InlineStyle.Subscript) || run.Style.HasFlag(InlineStyle.Superscript)
-            ? _emSize * 0.72
-            : _emSize;
+        // Sub/superscript: smaller font plus a tunable vertical shift. WPF's BaselineAlignment.Superscript
+        // raises by a fixed, font-derived amount that reads too high here, so instead we keep the run on the
+        // baseline and translate the glyphs by a fraction of the base em via a TextEffect (ScriptRise/Drop).
+        bool sub = run.Style.HasFlag(InlineStyle.Subscript);
+        bool sup = run.Style.HasFlag(InlineStyle.Superscript);
+        double em = sub || sup ? _emSize * 0.72 : _emSize;
+        TextEffectCollection? effects = sup ? ScriptShift(-_emSize * ScriptRise)
+            : sub ? ScriptShift(_emSize * ScriptDrop)
+            : null;
 
-        return new InlineRunProperties(typeface, em, fg, bg, BuildDecorations(run));
+        return new InlineRunProperties(typeface, em, fg, bg, BuildDecorations(run), effects);
+    }
+
+    // Vertical shift of script runs, as a fraction of the base em. Tuned by eye against the surrounding text.
+    private const double ScriptRise = 0.34; // superscript: glyphs raised so the top sits near cap height
+    private const double ScriptDrop = 0.12; // subscript: glyphs lowered just below the baseline
+
+    private static TextEffectCollection ScriptShift(double dy)
+    {
+        var transform = new TranslateTransform(0, dy);
+        transform.Freeze();
+        var effect = new TextEffect(transform, foreground: null, clip: null, positionStart: 0, positionCount: int.MaxValue);
+        effect.Freeze();
+        var effects = new TextEffectCollection { effect };
+        effects.Freeze();
+        return effects;
     }
 
     private static TextDecorationCollection? BuildDecorations(InlineRun run)
@@ -97,13 +117,14 @@ internal sealed class InlineTextSource : TextSource
 
 internal sealed class InlineRunProperties : TextRunProperties
 {
-    public InlineRunProperties(Typeface typeface, double emSize, Brush fg, Brush? bg, TextDecorationCollection? decorations)
+    public InlineRunProperties(Typeface typeface, double emSize, Brush fg, Brush? bg, TextDecorationCollection? decorations, TextEffectCollection? effects = null)
     {
         Typeface = typeface;
         FontRenderingEmSize = emSize;
         ForegroundBrush = fg;
         BackgroundBrush = bg;
         TextDecorations = decorations;
+        TextEffects = effects;
     }
 
     public override Typeface Typeface { get; }
@@ -113,7 +134,7 @@ internal sealed class InlineRunProperties : TextRunProperties
     public override Brush ForegroundBrush { get; }
     public override Brush? BackgroundBrush { get; }
     public override CultureInfo CultureInfo => CultureInfo.CurrentCulture;
-    public override TextEffectCollection? TextEffects => null;
+    public override TextEffectCollection? TextEffects { get; }
 }
 
 internal sealed class InlineParagraphProperties : TextParagraphProperties

@@ -62,6 +62,13 @@ public class MarkdownScrollHost : Grid
         _jumpButton.Visibility = Visibility.Collapsed;
     }
 
+    /// <summary>Scroll to the top of the content and stop following the bottom.</summary>
+    public void ScrollToTop()
+    {
+        _stickToBottom = false;
+        _scroll.ScrollToVerticalOffset(0);
+    }
+
     private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         // Push the viewport to virtualizing content (ADR-0006) on every scroll/resize.
