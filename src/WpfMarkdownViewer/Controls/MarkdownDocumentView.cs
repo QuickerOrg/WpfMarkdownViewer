@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using WpfMarkdownViewer.Model;
@@ -217,6 +218,11 @@ public class MarkdownDocumentView : Panel
 
     /// <summary>Drive a single synchronous flush. Test/host hook so streaming can be advanced deterministically.</summary>
     internal void FlushForTest() => Flush();
+
+    /// <summary>The whole Document as accessible read-only plain text (ADR-0009). Also the basis for plain-text copy.</summary>
+    internal string GetAccessibleText() => DocumentTextSerializer.ToPlainText(Document);
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new MarkdownDocumentAutomationPeer(this);
 
     private void RaiseLink(string url) => OnLinkClicked(url);
 
