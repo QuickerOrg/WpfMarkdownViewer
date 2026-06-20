@@ -54,6 +54,9 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
 
     public string MarkdownLinePrefix => _markdownPrefix;
 
+    /// <summary>When true, a blinking "typing" caret is drawn at the end of the last line (active streaming block).</summary>
+    public bool ShowCaret { get; set; }
+
     private double LineHeight => _emSize * _lineHeightFactor;
 
     protected override Size MeasureOverride(Size availableSize)
@@ -125,6 +128,14 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
             line.Draw(dc, new Point(_padding.Left, y), InvertAxes.None);
             y += line.Height;
             lineStart += line.Length;
+        }
+
+        if (ShowCaret && _lines.Count > 0)
+        {
+            var last = _lines[^1];
+            double caretX = _padding.Left + last.WidthIncludingTrailingWhitespace + 1;
+            double caretTop = y - last.Height + Math.Max(0, (last.Height - _emSize) / 2);
+            dc.DrawRectangle(_theme.Foreground, null, new Rect(caretX, caretTop, 1.6, _emSize));
         }
     }
 

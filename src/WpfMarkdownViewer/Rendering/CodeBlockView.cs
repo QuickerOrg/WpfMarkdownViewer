@@ -18,6 +18,7 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
     private const double PadX = 12;
     private const double PadY = 10;
     private const double HeaderHeight = 26;
+    private const double ScrollbarH = 8;
 
     private static readonly Dictionary<string, Brush> BrushCache = new();
     private static readonly Brush SubtleBrush = Frozen(Color.FromRgb(0x6B, 0x72, 0x80));
@@ -40,6 +41,19 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
     private double _lineHeight;
     private int _selStart = -1;
     private int _selEnd = -1;
+
+    // Horizontal scrolling of code wider than the viewport.
+    private double _contentW;       // widest line
+    private double _viewportW;      // visible code width
+    private double _scrollX;        // current horizontal offset
+    private double _codeHeight;     // total text height (all lines)
+    private Rect _thumbRect;
+    private bool _thumbDragging;
+    private double _dragStartX;
+    private double _dragStartScroll;
+
+    private double MaxScrollX => Math.Max(0, _contentW - _viewportW);
+    private bool Overflows => _contentW > _viewportW + 0.5;
 
     public CodeBlockView(string code, string? language, IReadOnlyList<IReadOnlyList<ColoredSpan>> lines, MarkdownStyle theme)
     {
@@ -94,7 +108,12 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
         double width = double.IsInfinity(availableSize.Width)
             ? contentWidth + 2 * PadX
             : availableSize.Width;
-        double height = HeaderHeight + PadY + contentHeight + PadY;
+        _contentW = contentWidth;
+        _codeHeight = contentHeight;
+        _viewportW = Math.Max(1, width - 2 * PadX);
+        _scrollX = Math.Clamp(_scrollX, 0, MaxScrollX);
+
+        double height = HeaderHeight + PadY + contentHeight + PadY + (Overflows ? ScrollbarH + 2 : 0);
         return new Size(width, height);
     }
 
@@ -118,6 +137,11 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
         dc.DrawText(copy, new Point(cx, (HeaderHeight - copy.Height) / 2));
         _copyRect = new Rect(cx - 6, 0, copy.Width + 12, HeaderHeight);
 
+        // Clip the code area and translate by the horizontal scroll so wide lines pan instead of overflowing.
+        var codeArea = new Rect(PadX, HeaderHeight + PadY, _viewportW, Math.Max(0, h - HeaderHeight - PadY));
+        dc.PushClip(new RectangleGeometry(codeArea));
+        dc.PushTransform(new TranslateTransform(-_scrollX, 0));
+
         double y = HeaderHeight + PadY;
         int off = 0;
         for (int li = 0; li < _formatted.Count; li++)
@@ -135,6 +159,27 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
             y += _formatted[li].Height;
             off += lineLen + 1; // +1 for the newline between lines
         }
+
+        dc.Pop(); // translate
+        dc.Pop(); // clip
+
+        DrawScrollbar(dc, w, h);
+    }
+
+    private void DrawScrollbar(DrawingContext dc, double w, double h)
+    {
+        if (!Overflows)
+        {
+            _thumbRect = Rect.Empty;
+            return;
+        }
+
+        double trackY = h - ScrollbarH - 1;
+        double trackW = _viewportW;
+        double thumbW = Math.Max(24, trackW * (_viewportW / _contentW));
+        double thumbX = PadX + (trackW - thumbW) * (MaxScrollX <= 0 ? 0 : _scrollX / MaxScrollX);
+        _thumbRect = new Rect(thumbX, trackY, thumbW, ScrollbarH);
+        dc.DrawRoundedRectangle(_theme.QuoteBar, null, _thumbRect, ScrollbarH / 2, ScrollbarH / 2);
     }
 
     // --- ISelectableText ---
@@ -168,7 +213,7 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
             return 0;
         int line = (int)Math.Floor((p.Y - (HeaderHeight + PadY)) / _lineHeight);
         line = Math.Clamp(line, 0, _lineTexts.Count - 1);
-        int col = _charWidth > 0 ? (int)Math.Round((p.X - PadX) / _charWidth) : 0;
+        int col = _charWidth > 0 ? (int)Math.Round((p.X - PadX + _scrollX) / _charWidth) : 0;
         col = Math.Clamp(col, 0, _lineTexts[line].Length);
         int off = 0;
         for (int k = 0; k < line; k++)
@@ -183,15 +228,37 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
         InvalidateVisual();
     }
 
+    protected override void OnMouseWheel(MouseWheelEventArgs e)
+    {
+        if (Overflows && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            _scrollX = Math.Clamp(_scrollX - e.Delta, 0, MaxScrollX);
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+        base.OnMouseWheel(e);
+    }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        Cursor = _copyRect.Contains(e.GetPosition(this)) ? Cursors.Hand : null;
+        var p = e.GetPosition(this);
+        if (_thumbDragging)
+        {
+            double range = Math.Max(1, _viewportW - _thumbRect.Width);
+            _scrollX = Math.Clamp(_dragStartScroll + (p.X - _dragStartX) / range * MaxScrollX, 0, MaxScrollX);
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+        Cursor = _copyRect.Contains(p) || _thumbRect.Contains(p) ? Cursors.Hand : null;
         base.OnMouseMove(e);
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        if (_copyRect.Contains(e.GetPosition(this)))
+        var p = e.GetPosition(this);
+        if (_copyRect.Contains(p))
         {
             try
             {
@@ -201,7 +268,26 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
             catch { /* clipboard may be locked by another process */ }
             e.Handled = true;
         }
+        else if (_thumbRect.Contains(p))
+        {
+            _thumbDragging = true;
+            _dragStartX = p.X;
+            _dragStartScroll = _scrollX;
+            CaptureMouse();
+            e.Handled = true;
+        }
         base.OnMouseLeftButtonDown(e);
+    }
+
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        if (_thumbDragging)
+        {
+            _thumbDragging = false;
+            ReleaseMouseCapture();
+            e.Handled = true;
+        }
+        base.OnMouseLeftButtonUp(e);
     }
 
     private void ShowCopied()

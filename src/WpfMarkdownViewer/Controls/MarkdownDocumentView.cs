@@ -98,6 +98,8 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         _pump = new DispatcherTimer(DispatcherPriority.Background) { Interval = _policy.MidInterval };
         _pump.Tick += OnPumpTick;
         _pump.Start();
+        _caretBlink = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(530) };
+        _caretBlink.Tick += OnCaretBlink;
     }
 
     /// <summary>The appearance configuration (fonts, sizes, margins, colors). Settable in code or XAML; runtime-swappable (M2-1).</summary>
@@ -255,7 +257,51 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         for (int i = 0; i < _slots.Count; i++)
             _slots[i].Finalized = i < _stableCount;
 
+        UpdateCaret();
         InvalidateMeasure();
+    }
+
+    // --- Streaming "typing" caret on the active block (ChatGPT-style) ---
+
+    private readonly DispatcherTimer _caretBlink;
+    private bool _caretOn = true;
+    private ParagraphView? _caretView;
+
+    private void UpdateCaret()
+    {
+        // The caret rides the trailing block while streaming, but only for text blocks (paragraph/heading/list item).
+        var active = !_completed && _slots.Count > 0 ? _slots[^1].View as ParagraphView : null;
+        if (!ReferenceEquals(active, _caretView))
+        {
+            if (_caretView is not null)
+            {
+                _caretView.ShowCaret = false;
+                _caretView.InvalidateVisual();
+            }
+            _caretView = active;
+            _caretOn = true;
+        }
+
+        if (_caretView is not null)
+        {
+            _caretView.ShowCaret = _caretOn;
+            if (!_caretBlink.IsEnabled)
+                _caretBlink.Start();
+        }
+        else if (_caretBlink.IsEnabled)
+        {
+            _caretBlink.Stop();
+        }
+    }
+
+    private void OnCaretBlink(object? sender, EventArgs e)
+    {
+        _caretOn = !_caretOn;
+        if (_caretView is not null)
+        {
+            _caretView.ShowCaret = _caretOn;
+            _caretView.InvalidateVisual();
+        }
     }
 
     protected override Size MeasureOverride(Size availableSize)
