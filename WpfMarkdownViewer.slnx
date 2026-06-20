@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/WpfMarkdownViewer.Demo/WpfMarkdownViewer.Demo.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/WpfMarkdownViewer/WpfMarkdownViewer.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WpfMarkdownViewer.Tests/WpfMarkdownViewer.Tests.csproj" />
+  </Folder>
+</Solution>

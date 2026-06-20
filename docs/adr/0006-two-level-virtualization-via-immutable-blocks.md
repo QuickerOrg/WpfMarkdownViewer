@@ -1,0 +1,5 @@
+# Two-level virtualization enabled by immutable finalized Blocks
+
+The Scroll Host virtualizes at two levels: Block-level (off-screen Blocks in a long Document) and intra-Block (line-level inside a single very large code block). A virtualized Block drops its drawn visual but keeps its cached measured height so layout and the scrollbar stay stable; it is re-drawn when scrolled back into view. The Active Block is never virtualized.
+
+Because self-drawn Blocks have variable height, WPF's stock `VirtualizingStackPanel` is insufficient — we need measured-height caching. This is only safe because finalized Blocks are immutable (ADR-0002): their height and content never change, so caching and dropping their visuals cannot desync. We bake the enabling constraints (every Block can measure+cache its height and drop+rebuild its visual; selection works on the document model per ADR-0005) into the Block model from day one, and implement the virtualizing Scroll Host panel after the depth-first vertical slice proves the pipeline.
