@@ -106,6 +106,12 @@ public sealed class StreamingBlockParser
                 i = startLine + 1;
                 ownClosed = lines[startLine].HasNewline;
             }
+            else if (ImageSyntax.TryParse(firstLine, out string imgAlt, out string imgUrl))
+            {
+                block = new ImageBlock { Url = imgUrl, Alt = imgAlt };
+                i = startLine + 1;
+                ownClosed = lines[startLine].HasNewline;
+            }
             else if (LooksLikeTable(lines, i))
             {
                 int j = i + 2; // header + delimiter already confirmed

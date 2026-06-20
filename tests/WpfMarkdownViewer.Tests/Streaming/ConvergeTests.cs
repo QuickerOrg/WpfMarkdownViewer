@@ -25,6 +25,8 @@ public class ConvergeTests
         yield return ["before\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\nafter"];
         yield return ["above\n\n---\n\nbelow"];
         yield return ["- [ ] todo\n- [x] done"];
+        yield return ["![cat](http://example.com/cat.png)"];
+        yield return ["intro\n\n![cat](http://example.com/cat.png)\n\noutro"];
         yield return ["# Title\n\nintro para\n\n```js\ncode();\n```\n\n- item one\n- item two\n\n> a note"];
     }
 

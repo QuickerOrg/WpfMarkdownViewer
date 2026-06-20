@@ -35,6 +35,7 @@ public static class MarkdigBlockReader
             Md.ThematicBreakBlock => new ThematicBreakBlock(),
             Markdig.Extensions.Tables.Table => new TableBlock(),
             Md.ListBlock l => new ListBlock { Ordered = l.IsOrdered },
+            Md.ParagraphBlock p when TrySoleImage(p, out var url, out var alt) => new ImageBlock { Url = url, Alt = alt },
             Md.ParagraphBlock => new ParagraphBlock(),
             _ => new ParagraphBlock(), // M1 minimal set: anything else is treated as a paragraph.
         };
@@ -46,6 +47,26 @@ public static class MarkdigBlockReader
             : source[Math.Min(span.Start, source.Length)..];
         mapped.IsFinalized = true;
         return mapped;
+    }
+
+    private static bool TrySoleImage(Md.ParagraphBlock paragraph, out string url, out string alt)
+    {
+        url = string.Empty;
+        alt = string.Empty;
+        var first = paragraph.Inline?.FirstChild;
+        if (first is not Markdig.Syntax.Inlines.LinkInline { IsImage: true } image)
+            return false;
+
+        // Allow only trailing whitespace literals after the image (so the paragraph IS the image).
+        var next = image.NextSibling;
+        while (next is Markdig.Syntax.Inlines.LiteralInline lit && string.IsNullOrWhiteSpace(lit.Content.ToString()))
+            next = next.NextSibling;
+        if (next is not null)
+            return false;
+
+        url = image.Url ?? string.Empty;
+        alt = string.Concat(image.OfType<Markdig.Syntax.Inlines.LiteralInline>().Select(l => l.Content.ToString()));
+        return true;
     }
 
     private static string? Empty(string? s) => string.IsNullOrEmpty(s) ? null : s;

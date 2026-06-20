@@ -31,6 +31,8 @@ internal static class BlockViewFactory
 
         ThematicBreakBlock => new HrView(theme),
 
+        ImageBlock img => new ImageView(img, theme),
+
         ListBlock l => new ListView(l, theme, onLink),
 
         QuoteBlock q => new QuoteView(q, theme, onLink),

@@ -52,3 +52,12 @@ public sealed class ThematicBreakBlock : MdBlock
 {
     public override BlockKind Kind => BlockKind.ThematicBreak;
 }
+
+/// <summary>A block-level image: a paragraph that is just <c>![alt](url)</c>.</summary>
+public sealed class ImageBlock : MdBlock
+{
+    public string Url { get; internal set; } = string.Empty;
+    public string Alt { get; internal set; } = string.Empty;
+
+    public override BlockKind Kind => BlockKind.Image;
+}

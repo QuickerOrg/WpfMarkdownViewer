@@ -12,6 +12,7 @@ public enum BlockKind
     Quote,
     Table,
     ThematicBreak,
+    Image,
 }
 
 /// <summary>

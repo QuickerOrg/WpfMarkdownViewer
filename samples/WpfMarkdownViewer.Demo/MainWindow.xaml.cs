@@ -31,6 +31,8 @@ public partial class MainWindow : Window
         "- [x] 代码高亮 / 表格\n" +
         "- [ ] 文本选择与复制（进行中）\n\n" +
         "---\n\n" +
+        "## 示例图片\n\n" +
+        "![示例图片](https://picsum.photos/seed/wpfmd/480/200)\n\n" +
         "## 三种实现路线\n\n" +
         "| 路线 | 优点 | 建议 |\n" +
         "| --- | --- | --- |\n" +
