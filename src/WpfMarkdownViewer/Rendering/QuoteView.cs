@@ -21,7 +21,7 @@ internal sealed class QuoteView : Panel
         _theme = theme;
         InternalChildren.Add(new ParagraphView(
             InlineProjector.Project(StripQuoteMarkers(quote.RawText)), theme, theme.EmSize, FontWeights.Normal,
-            lineHeightFactor: theme.QuoteLineHeight, onLink: onLink));
+            lineHeightFactor: theme.QuoteLineHeight, onLink: onLink, markdownPrefix: "> "));
     }
 
     protected override Size MeasureOverride(Size availableSize)

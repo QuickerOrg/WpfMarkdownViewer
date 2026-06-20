@@ -21,6 +21,7 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
     private readonly bool _monospace;
     private readonly double _lineHeightFactor;
     private readonly Action<string>? _onLink;
+    private readonly string _markdownPrefix;
     private readonly List<TextLine> _lines = new();
 
     // Kept for the lifetime of the view: the TextLines drawn in OnRender depend on this formatter's
@@ -33,7 +34,8 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
 
     public ParagraphView(InlineProjection projection, MarkdownStyle theme,
         double emSize, FontWeight weight, Brush? background = null, Thickness padding = default,
-        bool monospace = false, double lineHeightFactor = 1.55, Action<string>? onLink = null)
+        bool monospace = false, double lineHeightFactor = 1.55, Action<string>? onLink = null,
+        string markdownPrefix = "")
     {
         _projection = projection;
         _theme = theme;
@@ -44,7 +46,10 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
         _monospace = monospace;
         _lineHeightFactor = lineHeightFactor;
         _onLink = onLink;
+        _markdownPrefix = markdownPrefix;
     }
+
+    public string MarkdownLinePrefix => _markdownPrefix;
 
     private double LineHeight => _emSize * _lineHeightFactor;
 

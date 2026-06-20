@@ -72,4 +72,12 @@ public class SelectionTests
         Assert.Equal("**bold**", view.SelectAndGetMarkdownForTest(0, 6, 0, 10));
         Assert.Equal("<b>bold</b>", view.SelectAndGetHtmlForTest(0, 6, 0, 10));
     }
+
+    [WpfFact]
+    public void CopyMarkdown_FullSelection_IncludesBlockPrefixes()
+    {
+        var view = LaidOut("# Title\n\n- a\n- b");
+
+        Assert.Equal("# Title\n- a\n- b", view.SelectAndGetMarkdownForTest(0, 0, 2, 1));
+    }
 }

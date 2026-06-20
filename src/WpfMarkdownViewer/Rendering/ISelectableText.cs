@@ -21,4 +21,7 @@ internal interface ISelectableText
 
     /// <summary>The styled inline runs covering [start, end), clipped to that range (for HTML/Markdown copy).</summary>
     IReadOnlyList<InlineRun> SelectedRuns(int start, int end);
+
+    /// <summary>Block-level Markdown prefix for this segment when copied (e.g. "## ", "- ", "&gt; "); empty for a plain paragraph.</summary>
+    string MarkdownLinePrefix { get; }
 }

@@ -30,9 +30,12 @@ internal sealed class ListView : Panel
             _markers.Add(item.IsTask
                 ? new Marker(null, IsTask: true, item.Checked)
                 : new Marker(list.Ordered ? $"{n}." : "•", IsTask: false, Checked: false));
+            string mdPrefix = item.IsTask
+                ? (item.Checked ? "- [x] " : "- [ ] ")
+                : list.Ordered ? $"{n}. " : "- ";
             InternalChildren.Add(new ParagraphView(
                 InlineProjector.Project(item.Content), theme, theme.EmSize, FontWeights.Normal,
-                lineHeightFactor: theme.ListLineHeight, onLink: onLink));
+                lineHeightFactor: theme.ListLineHeight, onLink: onLink, markdownPrefix: mdPrefix));
             n++;
         }
     }

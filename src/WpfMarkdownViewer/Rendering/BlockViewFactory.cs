@@ -23,7 +23,8 @@ internal static class BlockViewFactory
         HeadingBlock h => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(h)), theme,
             emSize: theme.HeadingEm(h.Level), weight: theme.HeadingWeight,
-            lineHeightFactor: theme.HeadingLineHeight, onLink: onLink),
+            lineHeightFactor: theme.HeadingLineHeight, onLink: onLink,
+            markdownPrefix: new string('#', Math.Clamp(h.Level, 1, 6)) + " "),
 
         CodeBlock c => CreateCodeView(c, theme),
 

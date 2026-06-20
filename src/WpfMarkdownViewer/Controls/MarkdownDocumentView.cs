@@ -452,21 +452,22 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
     {
         if (!_hasSelection || _selectables.Count == 0)
             return;
-        string plain = BuildSelectedText();
-        if (plain.Length == 0)
+        string markdown = BuildSelectedMarkdown();
+        if (markdown.Length == 0)
             return;
         try
         {
             var data = new DataObject();
-            data.SetText(plain, TextDataFormat.UnicodeText);
+            // Plain text IS the Markdown source (so pasting anywhere yields Markdown); HTML carries the formatting.
+            data.SetText(markdown, TextDataFormat.UnicodeText);
             data.SetText(BuildCfHtml(BuildSelectedHtml()), TextDataFormat.Html);
-            data.SetData("Markdown", BuildSelectedMarkdown());
+            data.SetData("Markdown", markdown);
             Clipboard.SetDataObject(data, true);
         }
         catch { /* clipboard busy */ }
     }
 
-    private IEnumerable<IReadOnlyList<InlineRun>> SelectedRunsPerSegment()
+    private IEnumerable<(int Index, IReadOnlyList<InlineRun> Runs)> SelectedRunsPerSegment()
     {
         var (lo, loOff, hi, hiOff) = OrderedSelection();
         for (int i = lo; i <= hi; i++)
@@ -474,15 +475,28 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
             int s = i == lo ? loOff : 0;
             int e = i == hi ? hiOff : _selectables[i].SelectableText.Length;
             if (e > s)
-                yield return _selectables[i].SelectedRuns(s, e);
+                yield return (i, _selectables[i].SelectedRuns(s, e));
         }
     }
 
-    private string BuildSelectedMarkdown() =>
-        string.Join("\n", SelectedRunsPerSegment().Select(Streaming.RunSerializer.ToMarkdown));
+    private string BuildSelectedMarkdown()
+    {
+        var (lo, loOff, _, _) = OrderedSelection();
+        var sb = new StringBuilder();
+        foreach (var (index, runs) in SelectedRunsPerSegment())
+        {
+            if (sb.Length > 0)
+                sb.Append('\n');
+            // Include the block prefix unless this is the first segment and the selection starts mid-line.
+            if (index != lo || loOff == 0)
+                sb.Append(_selectables[index].MarkdownLinePrefix);
+            sb.Append(Streaming.RunSerializer.ToMarkdown(runs));
+        }
+        return sb.ToString();
+    }
 
     private string BuildSelectedHtml() =>
-        string.Join("<br>", SelectedRunsPerSegment().Select(Streaming.RunSerializer.ToHtml));
+        string.Join("<br>", SelectedRunsPerSegment().Select(x => Streaming.RunSerializer.ToHtml(x.Runs)));
 
     /// <summary>Wrap an HTML fragment in the CF_HTML clipboard format (with byte-offset header).</summary>
     private static string BuildCfHtml(string fragment)
