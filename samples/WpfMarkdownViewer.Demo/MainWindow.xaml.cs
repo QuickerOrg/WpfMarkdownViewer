@@ -141,6 +141,7 @@ public partial class MainWindow : Window
         Root.Background = theme.Background;
         Host.Background = theme.Background;
 
+        string svgUrl = WriteSampleSvg();
         _script = new (ChatRole, string)[]
         {
             (ChatRole.User, "帮我用 C# 写一个判断质数的方法，并解释思路。"),
@@ -158,7 +159,8 @@ public partial class MainWindow : Window
                 "**思路**：只需试除到 `√n`：\n\n" +
                 "- 小于 2 的数不是质数\n" +
                 "- 若存在因子，必有一个 ≤ √n\n\n" +
-                "| 输入 | 输出 |\n| --- | --- |\n| 7 | true |\n| 9 | false |"),
+                "| 输入 | 输出 |\n| --- | --- |\n| 7 | true |\n| 9 | false |\n\n" +
+                $"下面是一张 SVG 矢量图（缩放不失真）：\n\n![SVG 示例]({svgUrl})"),
             (ChatRole.User, "时间复杂度是多少？"),
             (ChatRole.Assistant, "时间复杂度 \\(O(\\sqrt{n})\\)，空间复杂度 \\(O(1)\\) —— 对单次判断已经足够快。"),
         };
@@ -198,6 +200,22 @@ public partial class MainWindow : Window
         int n = Math.Min(step, text.Length - _turnPos);
         _conv!.AppendDelta(text.Substring(_turnPos, n));
         _turnPos += n;
+    }
+
+    private static string WriteSampleSvg()
+    {
+        const string svg =
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"260\" height=\"90\" viewBox=\"0 0 260 90\">" +
+            "<rect width=\"260\" height=\"90\" rx=\"14\" fill=\"#7c3aed\"/>" +
+            "<circle cx=\"46\" cy=\"45\" r=\"26\" fill=\"#fbbf24\"/>" +
+            "<polygon points=\"46,26 53,42 70,42 56,52 61,68 46,58 31,68 36,52 22,42 39,42\" fill=\"#7c3aed\"/>" +
+            "<text x=\"92\" y=\"53\" font-family=\"Segoe UI\" font-size=\"24\" fill=\"white\">SVG 矢量图</text>" +
+            "</svg>";
+        string dir = @"D:\Work_Try\WpfMarkdownViewer\artifacts";
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, "sample.svg");
+        File.WriteAllText(path, svg);
+        return new Uri(path).AbsoluteUri; // file:///D:/.../sample.svg
     }
 
     private void SaveConversationSnapshot()

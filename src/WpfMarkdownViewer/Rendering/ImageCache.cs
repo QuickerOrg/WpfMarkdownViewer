@@ -1,19 +1,20 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace WpfMarkdownViewer.Rendering;
 
-/// <summary>Two-level image cache (M2-4): in-memory by resolved URI, plus a file-backed cache keyed by SHA-256 of the URI.</summary>
+/// <summary>Two-level image cache (M2-4): in-memory by resolved URI (bitmaps and SVG drawings), plus a file-backed bitmap cache keyed by SHA-256 of the URI.</summary>
 internal static class ImageCache
 {
     private static readonly string Dir = Path.Combine(Path.GetTempPath(), "WpfMarkdownViewer", "images");
-    private static readonly Dictionary<string, BitmapImage> Memory = new();
+    private static readonly Dictionary<string, ImageSource> Memory = new();
 
-    public static bool TryMemory(string key, out BitmapImage bitmap) => Memory.TryGetValue(key, out bitmap!);
+    public static bool TryMemory(string key, out ImageSource image) => Memory.TryGetValue(key, out image!);
 
-    public static void PutMemory(string key, BitmapImage bitmap) => Memory[key] = bitmap;
+    public static void PutMemory(string key, ImageSource image) => Memory[key] = image;
 
     public static string FileFor(string key)
     {

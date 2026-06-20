@@ -8,9 +8,9 @@ using WpfMarkdownViewer.Model;
 namespace WpfMarkdownViewer.Rendering;
 
 /// <summary>
-/// A self-drawn block image (M2-4). Loads the bitmap asynchronously (http downloads stream in), shows a
-/// placeholder while loading and an error box on failure, and scales to fit the available width keeping
-/// aspect ratio. Decoded bitmaps are cached per URL. Inline images and relative-path bases are later work.
+/// A self-drawn block image (M2-4). Loads bitmaps or scalable SVG (M3) asynchronously, shows a placeholder
+/// while loading and an error box on failure, and scales to fit the available width keeping aspect ratio.
+/// Decoded images are cached per URL; bitmaps also use a file-backed cache.
 /// </summary>
 internal sealed class ImageView : FrameworkElement
 {
@@ -23,7 +23,7 @@ internal sealed class ImageView : FrameworkElement
     private readonly MarkdownStyle _theme;
 
     private string _cacheKey = string.Empty;
-    private BitmapImage? _bitmap;
+    private ImageSource? _image;
     private bool _failed;
 
     public ImageView(ImageBlock block, MarkdownStyle theme, string? basePath = null)
@@ -47,7 +47,13 @@ internal sealed class ImageView : FrameworkElement
 
         if (ImageCache.TryMemory(_cacheKey, out var mem))
         {
-            _bitmap = mem;
+            _image = mem;
+            return;
+        }
+
+        if (SvgImage.IsSvg(uri))
+        {
+            _ = LoadSvgAsync(uri);
             return;
         }
 
@@ -116,13 +122,27 @@ internal sealed class ImageView : FrameworkElement
         }
     }
 
+    private async Task LoadSvgAsync(Uri uri)
+    {
+        var image = await SvgImage.LoadAsync(uri);
+        if (image is null)
+            OnFailed();
+        else
+            OnLoadedImage(image);
+    }
+
     private void OnLoaded(BitmapImage bmp)
     {
         if (bmp.CanFreeze)
             bmp.Freeze();
+        OnLoadedImage(bmp);
+    }
+
+    private void OnLoadedImage(ImageSource image)
+    {
         if (_cacheKey.Length > 0)
-            ImageCache.PutMemory(_cacheKey, bmp);
-        _bitmap = bmp;
+            ImageCache.PutMemory(_cacheKey, image);
+        _image = image;
         InvalidateMeasure();
         InvalidateVisual();
     }
@@ -136,10 +156,10 @@ internal sealed class ImageView : FrameworkElement
     protected override Size MeasureOverride(Size availableSize)
     {
         double maxW = double.IsInfinity(availableSize.Width) ? 600 : availableSize.Width;
-        if (_bitmap is { PixelWidth: > 0 })
+        if (_image is { Width: > 0, Height: > 0 })
         {
-            double w = Math.Min(maxW, _bitmap.PixelWidth);
-            double h = _bitmap.PixelHeight * (w / _bitmap.PixelWidth);
+            double w = Math.Min(maxW, _image.Width);
+            double h = _image.Height * (w / _image.Width);
             return new Size(w, h);
         }
         return new Size(Math.Min(maxW, PlaceholderWidth), PlaceholderHeight);
@@ -149,9 +169,13 @@ internal sealed class ImageView : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
-        if (_bitmap is not null)
+        if (_image is not null)
         {
-            dc.DrawImage(_bitmap, new Rect(0, 0, RenderSize.Width, RenderSize.Height));
+            // The block is arranged at full content width; draw the image at its own aspect ratio (derived
+            // from the measured height), left-aligned, so a narrow image (e.g. an SVG icon) isn't stretched.
+            double h = RenderSize.Height;
+            double w = _image.Height > 0 ? Math.Min(RenderSize.Width, h * (_image.Width / _image.Height)) : RenderSize.Width;
+            dc.DrawImage(_image, new Rect(0, 0, w, h));
             return;
         }
 
