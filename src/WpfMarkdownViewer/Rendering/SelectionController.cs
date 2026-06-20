@@ -1,6 +1,8 @@
 using System.Text;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using WpfMarkdownViewer.Model;
 using WpfMarkdownViewer.Streaming;
 
@@ -25,6 +27,21 @@ internal sealed class SelectionController
     public bool IsDragging { get; private set; }
     public bool HasSelection { get; private set; }
 
+    // Auto-scroll while dragging past the viewport edge (configured by the host that owns scrolling).
+    private const double EdgeZone = 36;   // px from the viewport edge where auto-scroll engages
+    private const double MaxStep = 18;     // px scrolled per tick at full velocity
+    private Func<(double Top, double Height)>? _viewport;
+    private Action<double>? _scrollBy;
+    private DispatcherTimer? _autoTimer;
+    private double _velocity;
+
+    /// <summary>Let a drag past the viewport edge auto-scroll. <paramref name="viewport"/> gives the visible band in root coordinates; <paramref name="scrollBy"/> scrolls by a vertical delta.</summary>
+    public void EnableAutoScroll(Func<(double Top, double Height)> viewport, Action<double> scrollBy)
+    {
+        _viewport = viewport;
+        _scrollBy = scrollBy;
+    }
+
     /// <summary>Start a drag at <paramref name="point"/> (root coordinates). False if there is nothing selectable.</summary>
     public bool Begin(Point point)
     {
@@ -34,16 +51,56 @@ internal sealed class SelectionController
         _anchor = _focus = Locate(point);
         Clear();
         IsDragging = true;
+        if (_viewport is not null && _scrollBy is not null)
+        {
+            _autoTimer ??= new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(20) };
+            _autoTimer.Tick -= OnAutoScrollTick;
+            _autoTimer.Tick += OnAutoScrollTick;
+            _autoTimer.Start();
+        }
         return true;
     }
 
     public void Update(Point point)
     {
+        _velocity = EdgeVelocity(point);
         _focus = Locate(point);
         Apply();
     }
 
-    public void End() => IsDragging = false;
+    public void End()
+    {
+        IsDragging = false;
+        _velocity = 0;
+        _autoTimer?.Stop();
+    }
+
+    // Velocity (px/tick) toward whichever viewport edge the pointer is past; 0 inside the safe band.
+    private double EdgeVelocity(Point point)
+    {
+        if (_viewport is null)
+            return 0;
+        var (top, height) = _viewport();
+        if (height <= 0)
+            return 0;
+
+        double over = point.Y < top + EdgeZone ? point.Y - (top + EdgeZone)
+            : point.Y > top + height - EdgeZone ? point.Y - (top + height - EdgeZone)
+            : 0;
+        return Math.Clamp(over / EdgeZone, -1, 1) * MaxStep;
+    }
+
+    private void OnAutoScrollTick(object? sender, EventArgs e)
+    {
+        if (!IsDragging || _velocity == 0 || _scrollBy is null)
+            return;
+        _scrollBy(_velocity);
+        // Content has scrolled under a stationary pointer: re-read its position and extend the selection.
+        var p = Mouse.GetPosition(_root);
+        _velocity = EdgeVelocity(p);
+        _focus = Locate(p);
+        Apply();
+    }
 
     public void SelectAll()
     {
@@ -226,6 +283,8 @@ internal sealed class SelectionController
     }
 
     // --- Test hooks ---
+
+    internal double EdgeVelocityForTest(Point p) => EdgeVelocity(p);
 
     internal IReadOnlyList<string> SelectableTexts()
     {

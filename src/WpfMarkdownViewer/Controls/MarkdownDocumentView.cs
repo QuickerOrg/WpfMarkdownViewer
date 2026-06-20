@@ -31,7 +31,7 @@ public sealed class LinkClickedEventArgs : EventArgs
 /// thread. A background <see cref="DispatcherTimer"/> drains the queue on an adaptive cadence
 /// ("自适应离散三档") and re-derives + re-renders the Document.
 /// </remarks>
-public class MarkdownDocumentView : Panel, IVirtualizingContent
+public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAware
 {
     private const double VirtualizationBuffer = 500;
     private const double EstimatedBlockHeight = 40;
@@ -82,6 +82,9 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
         _viewportHeight = height;
         InvalidateMeasure();
     }
+
+    void IScrollHostAware.AttachScroll(Action<double> scrollByVertical) =>
+        _selection.EnableAutoScroll(() => (_viewportTop, _viewportHeight), scrollByVertical);
 
     internal int SlotCountForTest => _slots.Count;
     internal int RealizedCountForTest => _slots.Count(s => s.View is not null);

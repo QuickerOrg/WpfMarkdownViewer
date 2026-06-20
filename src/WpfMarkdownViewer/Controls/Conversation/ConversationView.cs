@@ -22,7 +22,7 @@ namespace WpfMarkdownViewer.Controls;
 /// inside each message because the shell forwards the host viewport down to every realized message view.
 /// </remarks>
 [System.Windows.Markup.ContentProperty(nameof(MessagesHost))]
-public class ConversationView : Panel, IVirtualizingContent
+public class ConversationView : Panel, IVirtualizingContent, IScrollHostAware
 {
     private const double UserBubbleMaxWidthFraction = 0.82;
     private const double UserBubbleRightMargin = 16;
@@ -300,6 +300,9 @@ public class ConversationView : Panel, IVirtualizingContent
         _viewportHeight = height;
         InvalidateMeasure();
     }
+
+    void IScrollHostAware.AttachScroll(Action<double> scrollByVertical) =>
+        _selection.EnableAutoScroll(() => (_viewportTop, _viewportHeight), scrollByVertical);
 
     // --- Cross-message selection (ADR-0008): one controller over every realized message's text leaves ---
 

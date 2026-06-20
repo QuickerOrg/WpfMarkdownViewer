@@ -48,7 +48,13 @@ public class MarkdownScrollHost : Grid
     public object? Content
     {
         get => _scroll.Content;
-        set => _scroll.Content = value;
+        set
+        {
+            _scroll.Content = value;
+            // Let the content auto-scroll us while drag-selecting past the viewport edge.
+            if (value is IScrollHostAware aware)
+                aware.AttachScroll(delta => _scroll.ScrollToVerticalOffset(_scroll.VerticalOffset + delta));
+        }
     }
 
     /// <summary>Whether autoscroll is currently following the bottom.</summary>
