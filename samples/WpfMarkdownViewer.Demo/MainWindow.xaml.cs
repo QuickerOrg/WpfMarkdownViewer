@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using WpfMarkdownViewer.Controls;
 using WpfMarkdownViewer.Rendering;
 
 namespace WpfMarkdownViewer.Demo;
@@ -51,7 +52,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Viewer.LinkClicked += OnLinkClicked;
-        Loaded += (_, _) => Replay();
+        bool conversation = Environment.GetCommandLineArgs().Contains("--conversation");
+        Loaded += (_, _) =>
+        {
+            if (conversation)
+                OnConversationDemo(this, new RoutedEventArgs());
+            else
+                Replay();
+        };
     }
 
     private void OnLinkClicked(object? sender, WpfMarkdownViewer.Controls.LinkClickedEventArgs e)
@@ -102,11 +110,104 @@ public partial class MainWindow : Window
     private void ApplyTheme(bool dark)
     {
         var theme = dark ? MarkdownStyle.Dark : MarkdownStyle.Light;
-        Viewer.ApplyTheme(theme);
+        if (_conv is not null && ReferenceEquals(Host.Content, _conv))
+            _conv.ApplyTheme(theme);
+        else
+            Viewer.ApplyTheme(theme);
         var bg = theme.Background;
         Root.Background = bg;
         Host.Background = bg;
         ThemeButton.Content = dark ? "切换浅色" : "切换深色";
+    }
+
+    // --- Conversation Shell demo (M3) ---
+
+    private ConversationView? _conv;
+    private (ChatRole Role, string Text)[]? _script;
+    private int _turn;
+    private int _turnPos;
+    private DispatcherTimer? _convFeeder;
+
+    private void OnConversationDemo(object sender, RoutedEventArgs e)
+    {
+        _feeder?.Stop();
+        _convFeeder?.Stop();
+
+        var theme = _dark ? MarkdownStyle.Dark : MarkdownStyle.Light;
+        _conv = new ConversationView { MarkdownStyle = theme };
+        _conv.LinkClicked += OnLinkClicked;
+        Host.Content = _conv;
+        Root.Background = theme.Background;
+        Host.Background = theme.Background;
+
+        _script = new (ChatRole, string)[]
+        {
+            (ChatRole.User, "帮我用 C# 写一个判断质数的方法，并解释思路。"),
+            (ChatRole.Assistant,
+                "下面是一个简洁的实现：\n\n" +
+                "```csharp\n" +
+                "bool IsPrime(int n)\n" +
+                "{\n" +
+                "    if (n < 2) return false;\n" +
+                "    for (int i = 2; i * i <= n; i++)\n" +
+                "        if (n % i == 0) return false;\n" +
+                "    return true;\n" +
+                "}\n" +
+                "```\n\n" +
+                "**思路**：只需试除到 `√n`：\n\n" +
+                "- 小于 2 的数不是质数\n" +
+                "- 若存在因子，必有一个 ≤ √n\n\n" +
+                "| 输入 | 输出 |\n| --- | --- |\n| 7 | true |\n| 9 | false |"),
+            (ChatRole.User, "时间复杂度是多少？"),
+            (ChatRole.Assistant, "时间复杂度 $O(\\sqrt{n})$，空间复杂度 $O(1)$ —— 对单次判断已经足够快。"),
+        };
+        _turn = 0;
+        StatusText.Text = "对话流式中…";
+
+        _convFeeder = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(15) };
+        _convFeeder.Tick += OnConvTick;
+        BeginTurn();
+        _convFeeder.Start();
+    }
+
+    private void BeginTurn()
+    {
+        _conv!.StartMessage(_script![_turn].Role);
+        _turnPos = 0;
+    }
+
+    private void OnConvTick(object? sender, EventArgs e)
+    {
+        var (role, text) = _script![_turn];
+        if (_turnPos >= text.Length)
+        {
+            _conv!.CompleteMessage();
+            if (++_turn >= _script.Length)
+            {
+                _convFeeder!.Stop();
+                StatusText.Text = "对话完成";
+                Dispatcher.BeginInvoke(new Action(SaveConversationSnapshot), DispatcherPriority.ApplicationIdle);
+                return;
+            }
+            BeginTurn();
+            return;
+        }
+
+        int step = role == ChatRole.User ? 3 : Random.Shared.Next(1, 4);
+        int n = Math.Min(step, text.Length - _turnPos);
+        _conv!.AppendDelta(text.Substring(_turnPos, n));
+        _turnPos += n;
+    }
+
+    private void SaveConversationSnapshot()
+    {
+        if (_conv is null)
+            return;
+        _conv.VirtualizationEnabled = false;
+        _conv.UpdateLayout();
+        SaveElement(_conv, "demo-conversation.png");
+        _conv.VirtualizationEnabled = true;
+        StatusText.Text = "对话完成；已保存快照 demo-conversation.png";
     }
 
     private void Replay()
@@ -154,15 +255,17 @@ public partial class MainWindow : Window
         StatusText.Text = "完成；已保存浅色/深色/自定义快照";
     }
 
-    private void Save(string fileName)
+    private void Save(string fileName) => SaveElement(Viewer, fileName);
+
+    private void SaveElement(FrameworkElement element, string fileName)
     {
         try
         {
-            Viewer.UpdateLayout();
-            int w = Math.Max(1, (int)Math.Ceiling(Viewer.ActualWidth));
-            int h = Math.Max(1, (int)Math.Ceiling(Viewer.ActualHeight));
+            element.UpdateLayout();
+            int w = Math.Max(1, (int)Math.Ceiling(element.ActualWidth));
+            int h = Math.Max(1, (int)Math.Ceiling(element.ActualHeight));
             var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
-            rtb.Render(Viewer);
+            rtb.Render(element);
 
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(rtb));

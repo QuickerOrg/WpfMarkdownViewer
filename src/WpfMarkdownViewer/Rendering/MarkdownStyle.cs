@@ -48,6 +48,9 @@ public sealed record MarkdownStyle
     public Brush QuoteBar { get; init; } = Frozen(0xd0, 0xd7, 0xde);
     public Brush SelectionBackground { get; init; } = FrozenArgb(0x55, 0x33, 0x99, 0xff);
 
+    /// <summary>Background of a user message bubble in the Conversation Shell (M3). Assistant messages are full-width, no bubble.</summary>
+    public Brush UserBubbleBackground { get; init; } = Frozen(0xf0, 0xf2, 0xf5);
+
     public ThemeName TextMateTheme { get; init; } = ThemeName.LightPlus;
 
     /// <summary>Effective em size for a heading of the given level (1–6).</summary>
@@ -66,6 +69,7 @@ public sealed record MarkdownStyle
         CodeBlockBackground = Frozen(0x16, 0x1b, 0x22),
         Border = Frozen(0x30, 0x36, 0x3d),
         QuoteBar = Frozen(0x3d, 0x44, 0x4d),
+        UserBubbleBackground = Frozen(0x21, 0x26, 0x2d),
         TextMateTheme = ThemeName.DarkPlus,
     };
 
