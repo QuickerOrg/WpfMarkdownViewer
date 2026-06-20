@@ -223,6 +223,35 @@ public class ConversationViewTests
         Assert.Equal("stion\nanswer", md);
     }
 
+    // --- Message action bar ---
+
+    [WpfFact]
+    public void ActionBar_AssistantHasCopyAndRegenerate_UserHasCopyOnly()
+    {
+        var view = new ConversationView();
+        view.AddMessage(ChatRole.User, "q");
+        view.AddMessage(ChatRole.Assistant, "a");
+
+        Assert.Equal(new[] { "复制" }, view.ActionLabelsForTest(0));
+        Assert.Equal(new[] { "复制", "重新生成" }, view.ActionLabelsForTest(1));
+    }
+
+    [WpfFact]
+    public void ActionBar_Regenerate_RaisesEventWithMessageIndex()
+    {
+        var view = new ConversationView();
+        view.AddMessage(ChatRole.User, "q");
+        view.AddMessage(ChatRole.Assistant, "a");
+
+        MessageActionEventArgs? fired = null;
+        view.MessageRegenerateRequested += (_, e) => fired = e;
+        view.InvokeActionForTest(1, "重新生成");
+
+        Assert.NotNull(fired);
+        Assert.Equal(1, fired!.MessageIndex);
+        Assert.Equal(ChatRole.Assistant, fired.Role);
+    }
+
     [WpfFact]
     public void ApplyTheme_KeepsMessagesAndContent()
     {

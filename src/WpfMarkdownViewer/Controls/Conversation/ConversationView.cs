@@ -33,8 +33,10 @@ public class ConversationView : Panel, IVirtualizingContent
     {
         public required ChatRole Role { get; init; }
         public readonly StringBuilder Markdown = new();
-        public FrameworkElement? Element { get; set; }   // realized container: the bubble (user) or the view itself (assistant)
+        public FrameworkElement? Element { get; set; }   // realized container (content + action bar)
         public MarkdownDocumentView? View { get; set; }  // the inner renderer
+        public Border? Bubble { get; set; }              // the user bubble, if any (for MaxWidth)
+        public FrameworkElement? ActionBar { get; set; } // the hover/always-on action row
         public double Height { get; set; }
         public double Y { get; set; }
         public bool Finalized { get; set; }
@@ -75,11 +77,17 @@ public class ConversationView : Panel, IVirtualizingContent
     /// <summary>Number of messages in the transcript.</summary>
     public int MessageCount => _slots.Count;
 
+    /// <summary>When true every message's action bar stays visible; otherwise it shows on hover. Default false.</summary>
+    public bool AlwaysShowActions { get; set; }
+
     /// <summary>Raised when the user activates a link in any message. The host decides whether/how to navigate.</summary>
     public event EventHandler<LinkClickedEventArgs>? LinkClicked;
 
     /// <summary>Raised after a streaming message is completed (<see cref="CompleteMessage"/>).</summary>
     public event EventHandler? MessageCompleted;
+
+    /// <summary>Raised when the user clicks "regenerate" on an assistant message. The host re-streams the response.</summary>
+    public event EventHandler<MessageActionEventArgs>? MessageRegenerateRequested;
 
     // --- Streaming API (UI thread) ---
 
@@ -150,7 +158,7 @@ public class ConversationView : Panel, IVirtualizingContent
             {
                 // Don't rebuild the streaming view (SetMarkdown would finalize it) — restyle it in place.
                 live.ApplyTheme(StyleForRole(slot.Role));
-                if (slot.Element is Border bubble)
+                if (slot.Bubble is { } bubble)
                     bubble.Background = _style.UserBubbleBackground;
             }
             else if (slot.Element is not null)
@@ -179,26 +187,92 @@ public class ConversationView : Panel, IVirtualizingContent
         view.LinkClicked += OnChildLinkClicked;
         slot.View = view;
 
-        FrameworkElement element = view;
+        FrameworkElement content = view;
         if (slot.Role == ChatRole.User)
         {
-            element = new Border
+            slot.Bubble = new Border
             {
                 Background = _style.UserBubbleBackground,
                 CornerRadius = new CornerRadius(14),
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Margin = new Thickness(0, 0, UserBubbleRightMargin, 0),
                 Child = view,
             };
+            content = slot.Bubble;
         }
 
-        slot.Element = element;
-        InternalChildren.Add(element);
+        // Stack the message content above its action bar; both align to the message's side.
+        bool user = slot.Role == ChatRole.User;
+        var actionBar = BuildActionBar(slot);
+        slot.ActionBar = actionBar;
+        var container = new StackPanel
+        {
+            Margin = user ? new Thickness(0, 0, UserBubbleRightMargin, 0) : default,
+        };
+        container.Children.Add(content);
+        container.Children.Add(actionBar);
+        if (!AlwaysShowActions)
+        {
+            container.MouseEnter += (_, _) => actionBar.Visibility = Visibility.Visible;
+            container.MouseLeave += (_, _) => actionBar.Visibility = Visibility.Collapsed;
+        }
+
+        slot.Element = container;
+        InternalChildren.Add(container);
 
         // A finalized message owns its full Markdown, so it can be rebuilt verbatim after being virtualized
         // away and scrolled back. The active (streaming) message is fed live and is never virtualized.
         if (slot.Finalized)
             view.SetMarkdown(slot.Markdown.ToString());
+    }
+
+    private FrameworkElement BuildActionBar(MessageSlot slot)
+    {
+        var bar = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(2, 4, 2, 0),
+            HorizontalAlignment = slot.Role == ChatRole.User ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+            Visibility = AlwaysShowActions ? Visibility.Visible : Visibility.Collapsed,
+        };
+        bar.Children.Add(ActionButton("复制", () => CopyMessage(slot)));
+        if (slot.Role == ChatRole.Assistant)
+            bar.Children.Add(ActionButton("重新生成", () => RaiseRegenerate(slot)));
+        return bar;
+    }
+
+    private Button ActionButton(string text, Action onClick)
+    {
+        var button = new Button
+        {
+            Content = text,
+            FontSize = 12,
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(0, 0, 4, 0),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Foreground = _style.SubtleForeground,
+            Cursor = Cursors.Hand,
+        };
+        button.Click += (_, _) => onClick();
+        return button;
+    }
+
+    private static void CopyMessage(MessageSlot slot)
+    {
+        try
+        {
+            var data = new DataObject();
+            data.SetText(slot.Markdown.ToString(), TextDataFormat.UnicodeText);
+            Clipboard.SetDataObject(data, true);
+        }
+        catch { /* clipboard busy */ }
+    }
+
+    private void RaiseRegenerate(MessageSlot slot)
+    {
+        int index = _slots.IndexOf(slot);
+        if (index >= 0)
+            MessageRegenerateRequested?.Invoke(this, new MessageActionEventArgs(index, slot.Role));
     }
 
     private void Devirtualize(MessageSlot slot)
@@ -209,6 +283,8 @@ public class ConversationView : Panel, IVirtualizingContent
             slot.View.LinkClicked -= OnChildLinkClicked;
         slot.Element = null;
         slot.View = null;
+        slot.Bubble = null;
+        slot.ActionBar = null;
     }
 
     // User bubble: the Border supplies the inset and background, so the inner view drops its padding and goes transparent.
@@ -299,7 +375,7 @@ public class ConversationView : Panel, IVirtualizingContent
         {
             slot.Y = y;
 
-            if (slot.Element is Border bubble)
+            if (slot.Bubble is { } bubble)
                 bubble.MaxWidth = contentW * UserBubbleMaxWidthFraction;
             if (slot.View is IVirtualizingContent vc && _viewportHeight > 0)
                 vc.SetViewport(_viewportTop - y, _viewportHeight);
@@ -341,6 +417,23 @@ public class ConversationView : Panel, IVirtualizingContent
         _selection.SelectAndGetMarkdown(segA, offA, segB, offB);
 
     internal void FlushActiveForTest() => ActiveSlot()?.View?.FlushForTest();
+
+    internal IReadOnlyList<string> ActionLabelsForTest(int index) =>
+        _slots[index].ActionBar is StackPanel bar
+            ? bar.Children.OfType<Button>().Select(b => (string)b.Content).ToList()
+            : Array.Empty<string>();
+
+    internal void InvokeActionForTest(int index, string label)
+    {
+        if (_slots[index].ActionBar is not StackPanel bar)
+            return;
+        foreach (var button in bar.Children.OfType<Button>())
+            if ((string)button.Content == label)
+            {
+                button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                return;
+            }
+    }
 
     internal string MessageTextForTest(int index) => _slots[index].View?.GetAccessibleText() ?? string.Empty;
 

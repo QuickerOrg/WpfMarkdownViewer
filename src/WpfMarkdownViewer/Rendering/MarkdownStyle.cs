@@ -51,6 +51,9 @@ public sealed record MarkdownStyle
     /// <summary>Background of a user message bubble in the Conversation Shell (M3). Assistant messages are full-width, no bubble.</summary>
     public Brush UserBubbleBackground { get; init; } = Frozen(0xf0, 0xf2, 0xf5);
 
+    /// <summary>Muted foreground for secondary affordances (message action bar, labels).</summary>
+    public Brush SubtleForeground { get; init; } = Frozen(0x6b, 0x72, 0x80);
+
     public ThemeName TextMateTheme { get; init; } = ThemeName.LightPlus;
 
     /// <summary>Effective em size for a heading of the given level (1–6).</summary>
@@ -70,6 +73,7 @@ public sealed record MarkdownStyle
         Border = Frozen(0x30, 0x36, 0x3d),
         QuoteBar = Frozen(0x3d, 0x44, 0x4d),
         UserBubbleBackground = Frozen(0x21, 0x26, 0x2d),
+        SubtleForeground = Frozen(0x8b, 0x94, 0x9e),
         TextMateTheme = ThemeName.DarkPlus,
     };
 

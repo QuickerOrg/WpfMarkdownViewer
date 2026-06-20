@@ -30,8 +30,14 @@
 - 渲染：`MathInlineObject : TextEmbeddedObject` 把 WpfMath 矢量几何嵌入文本行，按数学轴居中对齐（`InlineMath` 缓存几何）；解析失败回退为等宽文本。
 - 复制：`RunSerializer` 把数学 run 还原为 `$latex$`。`InlineConvergeTests` 增数学样例。
 
+## 阶段 D · 聊天观感打磨（已完成）
+
+- **用户气泡随内容收缩**：`MarkdownDocumentView.ShrinkToContentWidth`；外壳仅用户消息开启。
+- **复制为纯文本 Markdown**：剪贴板只放 UnicodeText（不再附带 HTML / 自定义格式）；代码块还原 ``` 围栏，表格改为原子选区并重建管线表格。
+- **跨消息文本选择**：抽取可复用 `SelectionController`（按根收集 `ISelectableText` 叶子、按 Y 排序）；`MarkdownDocumentView` 委托并新增 `SelectionEnabled`；`ConversationView` 拥有跨全部已实现消息的单一选区。
+- **消息操作条**：每条消息下方"复制"（整条 Markdown）；助手消息额外"重新生成"（抛 `MessageRegenerateRequested`）。默认 hover 显示，`AlwaysShowActions` 可常显。
+
 ## 不在 M3
 
-- 跨**消息**文本选择（核心内的跨块选择已有；跨消息为后续）。
-- 头像、消息操作条（复制整条/重生成）、时间戳等聊天 chrome。
-- 用户气泡随短文本收缩宽度（当前填充至最大宽度）。
+- 头像、时间戳、点赞点踩等更多聊天 chrome。
+- 被消息级虚拟化丢弃的离屏消息不参与跨消息选区（与块级一致）。

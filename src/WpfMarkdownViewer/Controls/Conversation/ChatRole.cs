@@ -9,3 +9,16 @@ public enum ChatRole
     /// <summary>An assistant turn. Rendered full-width with no bubble (the streaming target).</summary>
     Assistant,
 }
+
+/// <summary>Identifies the message a Conversation Shell action (e.g. regenerate) was raised on.</summary>
+public sealed class MessageActionEventArgs : EventArgs
+{
+    public int MessageIndex { get; }
+    public ChatRole Role { get; }
+
+    public MessageActionEventArgs(int messageIndex, ChatRole role)
+    {
+        MessageIndex = messageIndex;
+        Role = role;
+    }
+}

@@ -134,8 +134,9 @@ public partial class MainWindow : Window
         _convFeeder?.Stop();
 
         var theme = _dark ? MarkdownStyle.Dark : MarkdownStyle.Light;
-        _conv = new ConversationView { MarkdownStyle = theme };
+        _conv = new ConversationView { MarkdownStyle = theme, AlwaysShowActions = true };
         _conv.LinkClicked += OnLinkClicked;
+        _conv.MessageRegenerateRequested += (_, e) => StatusText.Text = $"重新生成：消息 #{e.MessageIndex}（{e.Role}）";
         Host.Content = _conv;
         Root.Background = theme.Background;
         Host.Background = theme.Background;
