@@ -18,10 +18,11 @@
   - 事件：`LinkClicked`（向上冒泡）、`MessageCompleted`；`MarkdownStyle` 运行时可换（活跃消息原地重绘，已完成消息按需重建）。
 - 完成标准：多轮 用户/助手 流式回放，气泡/全宽分明，代码块/表格/列表/公式正常；`ConversationViewTests` 绿。
 
-## 阶段 B · 消息级虚拟化（下一刀）
+## 阶段 B · 消息级虚拟化（已完成）
 
-- 离屏**已完成**消息丢弃其视图但缓存测量高度（粒度从 Block 换成 Message），滚回视口再重建（从缓存的 Markdown 源）。
-- 完成标准：长 transcript 下已实现消息数有界；滚动条/布局稳定不跳。
+- `MeasureOverride` 两遍：先按缓存/估算高度定位，realize 视口内消息、drop 离屏的**已完成**消息（仅保留缓存高度），再转发子视口 + 测量。
+- 离屏丢弃的消息滚回视口时从缓存的 Markdown 源重建（`Realize` 自带 `SetMarkdown`）。活跃（流式）消息永不虚拟化。
+- 完成标准：长 transcript 下已实现消息数有界；滚动条/布局稳定不跳。`ConversationViewTests` 虚拟化用例绿。
 
 ## 不在 M3
 
