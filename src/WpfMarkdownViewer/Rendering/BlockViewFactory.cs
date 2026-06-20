@@ -21,12 +21,10 @@ internal static class BlockViewFactory
 
         CodeBlock c => CreateCodeView(c, theme),
 
-        QuoteBlock q => new ParagraphView(
-            InlineProjector.Project(InlineSource.Extract(q)), theme,
-            emSize: theme.EmSize, weight: FontWeights.Normal,
-            background: null, padding: new Thickness(12, 2, 0, 2)),
+        ListBlock l => new ListView(l, theme),
 
-        // Paragraph and (for M1) List render as inline-projected text.
+        QuoteBlock q => new QuoteView(q, theme),
+
         _ => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(block)), theme,
             emSize: theme.EmSize, weight: FontWeights.Normal),
