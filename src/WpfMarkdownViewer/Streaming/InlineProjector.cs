@@ -58,6 +58,24 @@ public static class InlineProjector
                 style ^= InlineStyle.Italic;
                 i += 1;
             }
+            else if (c == '~' && Matches(source, i, '~', 2))
+            {
+                Flush();
+                style ^= InlineStyle.Strikethrough;
+                i += 2;
+            }
+            else if (c == '=' && Matches(source, i, '=', 2))
+            {
+                Flush();
+                style ^= InlineStyle.Highlight;
+                i += 2;
+            }
+            else if (c == '+' && Matches(source, i, '+', 2))
+            {
+                Flush();
+                style ^= InlineStyle.Underline;
+                i += 2;
+            }
             else if (c == '`')
             {
                 int close = source.IndexOf('`', i + 1);

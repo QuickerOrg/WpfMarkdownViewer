@@ -66,10 +66,27 @@ internal sealed class InlineTextSource : TextSource
         Brush fg = run.LinkTarget is not null ? _theme.LinkBrush
             : code ? _theme.CodeForeground
             : _theme.Foreground;
-        Brush? bg = code ? _theme.InlineCodeBackground : null;
-        var decorations = run.LinkTarget is not null ? TextDecorations.Underline : null;
+        Brush? bg = run.Style.HasFlag(InlineStyle.Highlight) ? _theme.HighlightBackground
+            : code ? _theme.InlineCodeBackground
+            : null;
 
-        return new InlineRunProperties(typeface, _emSize, fg, bg, decorations);
+        return new InlineRunProperties(typeface, _emSize, fg, bg, BuildDecorations(run));
+    }
+
+    private static TextDecorationCollection? BuildDecorations(InlineRun run)
+    {
+        bool underline = run.LinkTarget is not null || run.Style.HasFlag(InlineStyle.Underline);
+        bool strike = run.Style.HasFlag(InlineStyle.Strikethrough);
+        if (!underline && !strike)
+            return null;
+
+        var decorations = new TextDecorationCollection();
+        if (underline)
+            decorations.Add(TextDecorations.Underline[0]);
+        if (strike)
+            decorations.Add(TextDecorations.Strikethrough[0]);
+        decorations.Freeze();
+        return decorations;
     }
 }
 

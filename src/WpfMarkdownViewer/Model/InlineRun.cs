@@ -8,6 +8,9 @@ public enum InlineStyle
     Bold = 1,
     Italic = 2,
     Code = 4,
+    Strikethrough = 8,
+    Underline = 16,
+    Highlight = 32,
 }
 
 /// <summary>

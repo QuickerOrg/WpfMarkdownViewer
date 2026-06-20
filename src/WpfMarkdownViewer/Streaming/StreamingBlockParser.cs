@@ -100,6 +100,12 @@ public sealed class StreamingBlockParser
                 i = j;
                 ownClosed = false;
             }
+            else if (IsThematicBreak(firstLine))
+            {
+                block = new ThematicBreakBlock();
+                i = startLine + 1;
+                ownClosed = lines[startLine].HasNewline;
+            }
             else if (LooksLikeTable(lines, i))
             {
                 int j = i + 2; // header + delimiter already confirmed
@@ -215,6 +221,26 @@ public sealed class StreamingBlockParser
     {
         int k = LeadingSpaces(text, 3);
         return k < text.Length && text[k] == '>';
+    }
+
+    private static bool IsThematicBreak(string text)
+    {
+        string t = text.Trim();
+        if (t.Length < 3)
+            return false;
+        char first = t[0];
+        if (first is not ('-' or '*' or '_'))
+            return false;
+        int count = 0;
+        foreach (char ch in t)
+        {
+            if (ch == ' ')
+                continue;
+            if (ch != first)
+                return false;
+            count++;
+        }
+        return count >= 3;
     }
 
     private static bool LooksLikeTable(List<SourceLine> lines, int i) =>

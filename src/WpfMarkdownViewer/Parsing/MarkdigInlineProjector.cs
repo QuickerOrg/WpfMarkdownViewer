@@ -42,8 +42,7 @@ public static class MarkdigInlineProjector
                     Emit(code.Content, style | InlineStyle.Code, link, visible, runs);
                     break;
                 case EmphasisInline emphasis:
-                    var add = emphasis.DelimiterCount >= 2 ? InlineStyle.Bold : InlineStyle.Italic;
-                    Walk(emphasis, style | add, link, visible, runs);
+                    Walk(emphasis, style | EmphasisStyle(emphasis), link, visible, runs);
                     break;
                 case LinkInline { IsImage: false } anchor:
                     Walk(anchor, style, anchor.Url ?? string.Empty, visible, runs);
@@ -57,6 +56,15 @@ public static class MarkdigInlineProjector
             }
         }
     }
+
+    private static InlineStyle EmphasisStyle(EmphasisInline e) => e.DelimiterChar switch
+    {
+        '~' => e.DelimiterCount >= 2 ? InlineStyle.Strikethrough : InlineStyle.None, // ~~strike~~ ; ~sub~ deferred
+        '=' => InlineStyle.Highlight, // ==mark==
+        '+' => InlineStyle.Underline, // ++ins++
+        '^' => InlineStyle.None, // ^sup^ deferred
+        _ => e.DelimiterCount >= 2 ? InlineStyle.Bold : InlineStyle.Italic, // * or _
+    };
 
     private static void Emit(string text, InlineStyle style, string? link, StringBuilder visible, List<InlineRun> runs)
     {

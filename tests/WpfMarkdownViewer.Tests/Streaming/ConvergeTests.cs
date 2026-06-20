@@ -23,6 +23,8 @@ public class ConvergeTests
         yield return ["# H1\n\nintro\n\n## H2\n\nmore text"];
         yield return ["| name | age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |"];
         yield return ["before\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\nafter"];
+        yield return ["above\n\n---\n\nbelow"];
+        yield return ["- [ ] todo\n- [x] done"];
         yield return ["# Title\n\nintro para\n\n```js\ncode();\n```\n\n- item one\n- item two\n\n> a note"];
     }
 

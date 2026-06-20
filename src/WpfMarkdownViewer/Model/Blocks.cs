@@ -46,3 +46,9 @@ public sealed class TableBlock : MdBlock
 {
     public override BlockKind Kind => BlockKind.Table;
 }
+
+/// <summary>A thematic break / horizontal rule (<c>---</c>, <c>***</c>, <c>___</c>).</summary>
+public sealed class ThematicBreakBlock : MdBlock
+{
+    public override BlockKind Kind => BlockKind.ThematicBreak;
+}

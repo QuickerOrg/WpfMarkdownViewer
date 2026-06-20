@@ -29,6 +29,8 @@ internal static class BlockViewFactory
 
         TableBlock t => new TableView(t, theme, onLink),
 
+        ThematicBreakBlock => new HrView(theme),
+
         ListBlock l => new ListView(l, theme, onLink),
 
         QuoteBlock q => new QuoteView(q, theme, onLink),

@@ -42,6 +42,7 @@ public sealed record MarkdownStyle
     public Brush LinkBrush { get; init; } = Frozen(0x0b, 0x66, 0xc2);
     public Brush CodeForeground { get; init; } = Frozen(0xc7, 0x25, 0x4e);
     public Brush InlineCodeBackground { get; init; } = Frozen(0xf0, 0xf0, 0xf2);
+    public Brush HighlightBackground { get; init; } = Frozen(0xff, 0xf1, 0xa8);
     public Brush CodeBlockBackground { get; init; } = Frozen(0xf6, 0xf6, 0xf8);
     public Brush Border { get; init; } = Frozen(0xe3, 0xe3, 0xe8);
     public Brush QuoteBar { get; init; } = Frozen(0xd0, 0xd7, 0xde);
@@ -60,6 +61,7 @@ public sealed record MarkdownStyle
         LinkBrush = Frozen(0x58, 0xa6, 0xff),
         CodeForeground = Frozen(0xff, 0x7b, 0x72),
         InlineCodeBackground = Frozen(0x26, 0x2c, 0x36),
+        HighlightBackground = Frozen(0x5c, 0x4a, 0x00),
         CodeBlockBackground = Frozen(0x16, 0x1b, 0x22),
         Border = Frozen(0x30, 0x36, 0x3d),
         QuoteBar = Frozen(0x3d, 0x44, 0x4d),

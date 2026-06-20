@@ -158,6 +158,22 @@ public class StreamingBlockParserTests
     }
 
     [Fact]
+    public void ThematicBreak_IsRecognized()
+    {
+        var doc = Parse("---", complete: true).Document;
+        Assert.Equal(BlockKind.ThematicBreak, Assert.Single(doc.Blocks).Kind);
+    }
+
+    [Fact]
+    public void ThematicBreak_BetweenParagraphs()
+    {
+        var doc = Parse("above\n\n***\n\nbelow", complete: true).Document;
+        Assert.Equal(
+            new[] { BlockKind.Paragraph, BlockKind.ThematicBreak, BlockKind.Paragraph },
+            doc.Blocks.Select(b => b.Kind));
+    }
+
+    [Fact]
     public void StreamComplete_FinalizesTheTrailingBlock()
     {
         var doc = Parse("still typing", complete: true).Document;

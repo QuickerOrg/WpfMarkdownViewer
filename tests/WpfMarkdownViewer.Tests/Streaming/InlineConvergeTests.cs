@@ -20,6 +20,10 @@ public class InlineConvergeTests
         yield return ["[click](http://example.com)"];
         yield return ["[**bold link**](http://example.com)"];
         yield return ["mix **b** and *i* and `c` done"];
+        yield return ["~~struck~~"];
+        yield return ["a ==highlight== b"];
+        yield return ["++inserted++"];
+        yield return ["mix ~~s~~ and **b** and ==m== done"];
     }
 
     [Theory]

@@ -25,15 +25,17 @@ internal sealed class ListView : Panel
     {
         _theme = theme;
         int n = 1;
-        foreach (string content in ParseItems(list.RawText))
+        foreach (var item in ParseItems(list.RawText))
         {
-            _markers.Add(list.Ordered ? $"{n}." : "•");
+            _markers.Add(item.IsTask ? (item.Checked ? "☑" : "☐") : list.Ordered ? $"{n}." : "•");
             InternalChildren.Add(new ParagraphView(
-                InlineProjector.Project(content), theme, theme.EmSize, FontWeights.Normal,
+                InlineProjector.Project(item.Content), theme, theme.EmSize, FontWeights.Normal,
                 lineHeightFactor: theme.ListLineHeight, onLink: onLink));
             n++;
         }
     }
+
+    private readonly record struct Item(string Content, bool IsTask, bool Checked);
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -77,27 +79,31 @@ internal sealed class ListView : Panel
         }
     }
 
-    private static IEnumerable<string> ParseItems(string raw)
+    private static IEnumerable<Item> ParseItems(string raw)
     {
         foreach (string line in raw.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
         {
             if (string.IsNullOrWhiteSpace(line))
                 continue;
             string t = line.TrimStart();
+            string content;
             if (t.Length >= 2 && (t[0] is '-' or '*' or '+') && t[1] == ' ')
             {
-                yield return t[2..].Trim();
-                continue;
+                content = t[2..].Trim();
             }
-            int d = 0;
-            while (d < t.Length && char.IsAsciiDigit(t[d]))
-                d++;
-            if (d > 0 && d < t.Length && (t[d] is '.' or ')'))
+            else
             {
-                yield return t[(d + 1)..].Trim();
-                continue;
+                int d = 0;
+                while (d < t.Length && char.IsAsciiDigit(t[d]))
+                    d++;
+                content = d > 0 && d < t.Length && (t[d] is '.' or ')') ? t[(d + 1)..].Trim() : t.Trim();
             }
-            yield return t.Trim(); // continuation / fallback
+
+            // Task marker: [ ] / [x] / [X] at the start of the item content.
+            if (content.Length >= 3 && content[0] == '[' && content[2] == ']' && (content[1] is ' ' or 'x' or 'X'))
+                yield return new Item(content[3..].TrimStart(), IsTask: true, Checked: content[1] is 'x' or 'X');
+            else
+                yield return new Item(content, IsTask: false, Checked: false);
         }
     }
 }

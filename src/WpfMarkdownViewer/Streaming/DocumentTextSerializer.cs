@@ -29,6 +29,7 @@ public static class DocumentTextSerializer
         QuoteBlock => Visible(StripQuoteMarkers(block.RawText)),
         ListBlock l => ListText(l),
         TableBlock => TableText(block.RawText),
+        ThematicBreakBlock => "———",
         _ => Visible(InlineSource.Extract(block)), // heading, paragraph
     };
 
