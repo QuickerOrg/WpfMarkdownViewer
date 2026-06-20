@@ -64,6 +64,10 @@ public class MarkdownScrollHost : Grid
 
     private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
     {
+        // Push the viewport to virtualizing content (ADR-0006) on every scroll/resize.
+        if (_scroll.Content is IVirtualizingContent vc)
+            vc.SetViewport(_scroll.VerticalOffset, _scroll.ViewportHeight);
+
         if (e.ExtentHeightChange != 0)
         {
             // Content grew (streaming). Keep pinned to the bottom only if we are following.

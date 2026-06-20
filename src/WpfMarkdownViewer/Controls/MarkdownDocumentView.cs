@@ -31,8 +31,11 @@ public sealed class LinkClickedEventArgs : EventArgs
 /// thread. A background <see cref="DispatcherTimer"/> drains the queue on an adaptive cadence
 /// ("自适应离散三档") and re-derives + re-renders the Document.
 /// </remarks>
-public class MarkdownDocumentView : Panel
+public class MarkdownDocumentView : Panel, IVirtualizingContent
 {
+    private const double VirtualizationBuffer = 500;
+    private const double EstimatedBlockHeight = 40;
+
     private readonly ConcurrentQueue<string> _incoming = new();
     private readonly StringBuilder _source = new();
     private readonly StreamingBlockParser _parser = new();
@@ -48,8 +51,34 @@ public class MarkdownDocumentView : Panel
     private bool _completed;
     private bool _dirty;
 
-    /// <summary>How many leading child visuals correspond to finalized, immutable Blocks (never rebuilt).</summary>
+    /// <summary>How many leading slots correspond to finalized, immutable Blocks (never rebuilt).</summary>
     private int _stableCount;
+
+    private readonly List<BlockSlot> _slots = new();
+    private double _viewportTop;
+    private double _viewportHeight; // 0 ⇒ no Scroll Host connected ⇒ realize all (no virtualization)
+
+    private sealed class BlockSlot
+    {
+        public required MdBlock Block { get; init; }
+        public FrameworkElement? View { get; set; }
+        public double Height { get; set; }
+        public double Y { get; set; }
+        public bool Finalized { get; set; }
+    }
+
+    /// <summary>When false, all Blocks stay realized (no virtualization) — e.g. for printing/snapshots. Default true.</summary>
+    public bool VirtualizationEnabled { get; set; } = true;
+
+    void IVirtualizingContent.SetViewport(double top, double height)
+    {
+        _viewportTop = top;
+        _viewportHeight = height;
+        InvalidateMeasure();
+    }
+
+    internal int SlotCountForTest => _slots.Count;
+    internal int RealizedCountForTest => _slots.Count(s => s.View is not null);
 
     public MarkdownDocumentView()
     {
@@ -181,23 +210,37 @@ public class MarkdownDocumentView : Panel
         DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Reconcile child visuals with the Document: keep finalized-Block visuals, rebuild the tail.</summary>
+    /// <summary>Reconcile slots with the Document: keep finalized-Block slots, rebuild the tail. Realization is decided in measure.</summary>
     private void Render()
     {
         var blocks = Document.Blocks;
-        if (_stableCount > blocks.Count)
+        if (_stableCount > blocks.Count || _stableCount > _slots.Count)
+        {
+            InternalChildren.Clear();
+            _slots.Clear();
             _stableCount = 0;
+        }
 
-        while (InternalChildren.Count > _stableCount)
-            InternalChildren.RemoveAt(InternalChildren.Count - 1);
+        for (int i = _slots.Count - 1; i >= _stableCount; i--)
+        {
+            if (_slots[i].View is { } v)
+                InternalChildren.Remove(v);
+            _slots.RemoveAt(i);
+        }
 
         for (int i = _stableCount; i < blocks.Count; i++)
-            InternalChildren.Add(BlockViewFactory.Create(blocks[i], _theme, RaiseLink));
+        {
+            var view = BlockViewFactory.Create(blocks[i], _theme, RaiseLink);
+            InternalChildren.Add(view);
+            _slots.Add(new BlockSlot { Block = blocks[i], View = view });
+        }
 
         int stable = 0;
         while (stable < blocks.Count && blocks[stable].IsFinalized)
             stable++;
         _stableCount = stable;
+        for (int i = 0; i < _slots.Count; i++)
+            _slots[i].Finalized = i < _stableCount;
 
         InvalidateMeasure();
     }
@@ -209,29 +252,63 @@ public class MarkdownDocumentView : Panel
         double availW = availableSize.Width;
         double contentW = Math.Max(1, (double.IsInfinity(availW) ? 800 : availW) - pad.Left - pad.Right);
 
-        double y = 0, maxChildW = 0;
-        foreach (UIElement child in InternalChildren)
+        bool virtualize = VirtualizationEnabled && _viewportHeight > 0;
+        double bufTop = _viewportTop - VirtualizationBuffer;
+        double bufBottom = _viewportTop + _viewportHeight + VirtualizationBuffer;
+
+        // Pass 1: provisional Y from cached/estimated heights, then realize/devirtualize per viewport.
+        double y = pad.Top;
+        foreach (var slot in _slots)
         {
-            child.Measure(new Size(contentW, double.PositiveInfinity));
-            y += child.DesiredSize.Height + spacing;
-            maxChildW = Math.Max(maxChildW, child.DesiredSize.Width);
+            slot.Y = y;
+            y += (slot.Height > 0 ? slot.Height : EstimatedBlockHeight) + spacing;
         }
-        double contentH = y > 0 ? y - spacing : 0;
-        double width = double.IsInfinity(availW) ? maxChildW + pad.Left + pad.Right : availW;
-        return new Size(width, contentH + pad.Top + pad.Bottom);
+        foreach (var slot in _slots)
+        {
+            bool onScreen = !virtualize || !slot.Finalized || slot.Height <= 0
+                || (slot.Y <= bufBottom && slot.Y + Math.Max(slot.Height, EstimatedBlockHeight) >= bufTop);
+            if (onScreen && slot.View is null)
+            {
+                slot.View = BlockViewFactory.Create(slot.Block, _theme, RaiseLink);
+                InternalChildren.Add(slot.View);
+            }
+            else if (!onScreen && slot.View is { } v && slot.Finalized)
+            {
+                InternalChildren.Remove(v);
+                slot.View = null;
+            }
+        }
+
+        // Pass 2: measure realized slots, cache their heights, compute final layout.
+        y = pad.Top;
+        double maxW = 0;
+        foreach (var slot in _slots)
+        {
+            if (slot.View is { } v)
+            {
+                v.Measure(new Size(contentW, double.PositiveInfinity));
+                slot.Height = v.DesiredSize.Height;
+                maxW = Math.Max(maxW, v.DesiredSize.Width);
+            }
+            else if (slot.Height <= 0)
+            {
+                slot.Height = EstimatedBlockHeight;
+            }
+            slot.Y = y;
+            y += slot.Height + spacing;
+        }
+
+        double contentBottom = _slots.Count > 0 ? y - spacing : pad.Top;
+        double width = double.IsInfinity(availW) ? maxW + pad.Left + pad.Right : availW;
+        return new Size(width, contentBottom + pad.Bottom);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
         var pad = _theme.ContentPadding;
-        double spacing = _theme.BlockSpacing;
         double w = Math.Max(0, finalSize.Width - pad.Left - pad.Right);
-        double y = pad.Top;
-        foreach (UIElement child in InternalChildren)
-        {
-            child.Arrange(new Rect(pad.Left, y, w, child.DesiredSize.Height));
-            y += child.DesiredSize.Height + spacing;
-        }
+        foreach (var slot in _slots)
+            slot.View?.Arrange(new Rect(pad.Left, slot.Y, w, slot.View.DesiredSize.Height));
         return finalSize;
     }
 

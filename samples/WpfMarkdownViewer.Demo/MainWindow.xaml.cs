@@ -137,6 +137,7 @@ public partial class MainWindow : Window
 
     private void SaveSnapshots()
     {
+        Viewer.VirtualizationEnabled = false; // realize all so the full-content snapshot isn't virtualized
         ApplyTheme(dark: false);
         Save("demo.png");
         Viewer.SelectAll();
@@ -147,6 +148,7 @@ public partial class MainWindow : Window
         Viewer.MarkdownStyle = BuildCustomStyle();
         Save("demo-custom.png");
         ApplyTheme(_dark); // restore whatever the user had
+        Viewer.VirtualizationEnabled = true; // re-enable for live scrolling
         StatusText.Text = "完成；已保存浅色/深色/自定义快照";
     }
 
