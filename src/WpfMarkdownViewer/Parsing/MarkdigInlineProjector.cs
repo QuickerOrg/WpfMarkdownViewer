@@ -42,7 +42,7 @@ public static class MarkdigInlineProjector
                     Emit(code.Content, style | InlineStyle.Code, link, visible, runs);
                     break;
                 case Markdig.Extensions.Mathematics.MathInline math:
-                    Emit(math.Content.ToString(), style | InlineStyle.Code, link, visible, runs); // inline math fallback
+                    Emit(math.Content.ToString(), style | InlineStyle.Math, link, visible, runs);
                     break;
                 case EmphasisInline emphasis:
                     Walk(emphasis, style | EmphasisStyle(emphasis), link, visible, runs);

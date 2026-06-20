@@ -26,6 +26,11 @@ public class InlineConvergeTests
         yield return ["mix ~~s~~ and **b** and ==m== done"];
         yield return ["H~2~O"];
         yield return ["x^2^ + y^2^"];
+        yield return ["inline $a+b$ math"];
+        yield return ["复杂度 $O(\\sqrt{n})$ 完成"];
+        yield return ["two $x^2$ and $y_1$ formulas"];
+        yield return ["price $5 and $10 literal"];
+        yield return ["mix **b** and $z$ and `c`"];
     }
 
     [Theory]

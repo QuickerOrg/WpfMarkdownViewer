@@ -105,6 +105,13 @@ public static class InlineProjector
                     i++;
                 }
             }
+            else if (c == '$' && TryReadInlineMath(source, i, out string latex, out int afterMath))
+            {
+                Flush();
+                runs.Add(new InlineRun(visible.Length, latex, style | InlineStyle.Math));
+                visible.Append(latex);
+                i = afterMath;
+            }
             else if (c == '[' && TryReadLink(source, i, out string text, out string url, out int next))
             {
                 Flush();
@@ -135,6 +142,33 @@ public static class InlineProjector
                 return false;
         // For count<3 ensure it is not the start of a longer run that a higher tier should claim.
         return true;
+    }
+
+    /// <summary>
+    /// Best-effort inline math <c>$…$</c> (single-dollar). Mirrors Markdig's dollarmath enough to Converge:
+    /// the opener is not followed by whitespace or another <c>$</c>; the closer is not preceded by whitespace
+    /// and not followed by a digit. Unclosed or rule-failing dollars stay literal.
+    /// </summary>
+    private static bool TryReadInlineMath(string s, int i, out string latex, out int next)
+    {
+        latex = string.Empty;
+        next = i;
+        if (i + 1 >= s.Length || s[i + 1] == '$' || char.IsWhiteSpace(s[i + 1]))
+            return false;
+
+        for (int j = i + 1; j < s.Length; j++)
+        {
+            if (s[j] != '$')
+                continue;
+            bool closeOk = !char.IsWhiteSpace(s[j - 1]) && (j + 1 >= s.Length || !char.IsDigit(s[j + 1]));
+            if (closeOk)
+            {
+                latex = s[(i + 1)..j];
+                next = j + 1;
+                return latex.Length > 0;
+            }
+        }
+        return false;
     }
 
     private static bool TryReadLink(string s, int i, out string text, out string url, out int next)

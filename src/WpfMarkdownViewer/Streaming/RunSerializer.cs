@@ -28,6 +28,8 @@ public static class RunSerializer
 
     private static string MarkdownFor(InlineRun run)
     {
+        if (run.Style.HasFlag(InlineStyle.Math))
+            return $"${run.Text}$";
         if (run.Style.HasFlag(InlineStyle.Code))
             return run.LinkTarget is { } codeLink ? $"[`{run.Text}`]({codeLink})" : $"`{run.Text}`";
 
@@ -46,7 +48,11 @@ public static class RunSerializer
     private static string HtmlFor(InlineRun run)
     {
         string inner;
-        if (run.Style.HasFlag(InlineStyle.Code))
+        if (run.Style.HasFlag(InlineStyle.Math))
+        {
+            inner = $"<code>{Escape($"${run.Text}$")}</code>";
+        }
+        else if (run.Style.HasFlag(InlineStyle.Code))
         {
             inner = $"<code>{Escape(run.Text)}</code>";
         }

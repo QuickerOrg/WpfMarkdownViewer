@@ -13,6 +13,9 @@ public enum InlineStyle
     Highlight = 32,
     Subscript = 64,
     Superscript = 128,
+
+    /// <summary>Inline math (<c>$…$</c>). The run's <see cref="InlineRun.Text"/> carries the LaTeX body; it renders as an embedded formula.</summary>
+    Math = 256,
 }
 
 /// <summary>

@@ -12,7 +12,7 @@ namespace WpfMarkdownViewer.Rendering;
 /// <summary>
 /// A self-drawn block math formula (M2-5) rendered natively to vector geometry via WpfMath (no browser),
 /// filled with the style foreground so it follows the theme. On parse failure, falls back to the raw
-/// LaTeX in monospace. Inline math is deferred.
+/// LaTeX in monospace. Inline math (<c>$…$</c>) is handled separately by <see cref="MathInlineObject"/>.
 /// </summary>
 internal sealed class MathView : FrameworkElement
 {

@@ -98,4 +98,31 @@ public class InlineProjectorTests
         var p = InlineProjector.Project("a `b");
         Assert.Equal("a `b", p.VisibleText);
     }
+
+    [Fact]
+    public void InlineMath_IsLeaf_CarriesLatex_NoDollars()
+    {
+        var p = InlineProjector.Project("cost $a+b$ end");
+
+        Assert.Equal("cost a+b end", p.VisibleText);
+        Assert.Collection(p.Runs,
+            r => Assert.Equal(new InlineRun(0, "cost ", InlineStyle.None), r),
+            r => Assert.Equal(new InlineRun(5, "a+b", InlineStyle.Math), r),
+            r => Assert.Equal(new InlineRun(8, " end", InlineStyle.None), r));
+    }
+
+    [Fact]
+    public void StrayDollars_AroundDigits_StayLiteral()
+    {
+        var p = InlineProjector.Project("price $5 and $10");
+        Assert.Equal("price $5 and $10", p.VisibleText);
+        Assert.Single(p.Runs);
+    }
+
+    [Fact]
+    public void UnclosedDollar_IsLiteral()
+    {
+        var p = InlineProjector.Project("a $x");
+        Assert.Equal("a $x", p.VisibleText);
+    }
 }

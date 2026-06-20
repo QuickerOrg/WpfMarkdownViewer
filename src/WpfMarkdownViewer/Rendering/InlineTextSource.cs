@@ -31,6 +31,20 @@ internal sealed class InlineTextSource : TextSource
             return new TextEndOfParagraph(1);
 
         InlineRun run = RunAt(index);
+
+        // Inline math renders as one embedded vector formula spanning its whole run; on parse failure it
+        // falls through and renders as monospace text (PropsFor treats Math like Code).
+        if (!_monospace && run.Style.HasFlag(InlineStyle.Math) && index == run.VisibleStart
+            && InlineMath.TryBuild(run.Text, _emSize, out var geometry, out var bounds))
+        {
+            // Clean props (no code background) — the formula is drawn directly, not as a styled glyph run.
+            var mathProps = new InlineRunProperties(
+                new Typeface(_theme.BaseTypeface.FontFamily, FontStyles.Normal, _baseWeight, FontStretches.Normal),
+                _emSize, _theme.Foreground, null, null);
+            return new MathInlineObject(text, run.VisibleStart, run.Text.Length, mathProps,
+                geometry, bounds, _theme.Foreground, axisHeight: _emSize * 0.26);
+        }
+
         int length = run.VisibleEnd - index;
         return new TextCharacters(text, index, length, PropsFor(run));
     }

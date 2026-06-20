@@ -50,4 +50,12 @@ public class RunSerializerTests
         var runs = new[] { new InlineRun(0, "t", InlineStyle.None, "http://x?a=1&b=2") };
         Assert.Equal("<a href=\"http://x?a=1&amp;b=2\">t</a>", RunSerializer.ToHtml(runs));
     }
+
+    [Fact]
+    public void InlineMath_RoundTripsWithDollars()
+    {
+        var runs = new[] { new InlineRun(0, "x^2", InlineStyle.Math) };
+        Assert.Equal("$x^2$", RunSerializer.ToMarkdown(runs));
+        Assert.Equal("<code>$x^2$</code>", RunSerializer.ToHtml(runs));
+    }
 }

@@ -24,12 +24,14 @@
 - 离屏丢弃的消息滚回视口时从缓存的 Markdown 源重建（`Realize` 自带 `SetMarkdown`）。活跃（流式）消息永不虚拟化。
 - 完成标准：长 transcript 下已实现消息数有界；滚动条/布局稳定不跳。`ConversationViewTests` 虚拟化用例绿。
 
+## 阶段 C · 行内数学（已完成，独立于外壳）
+
+- 流式 `InlineProjector` 识别 `$…$`（best-effort，规则与 Markdig dollarmath 收敛）；`MarkdigInlineProjector` 的 `MathInline` 改投 `InlineStyle.Math`。
+- 渲染：`MathInlineObject : TextEmbeddedObject` 把 WpfMath 矢量几何嵌入文本行，按数学轴居中对齐（`InlineMath` 缓存几何）；解析失败回退为等宽文本。
+- 复制：`RunSerializer` 把数学 run 还原为 `$latex$`。`InlineConvergeTests` 增数学样例。
+
 ## 不在 M3
 
 - 跨**消息**文本选择（核心内的跨块选择已有；跨消息为后续）。
 - 头像、消息操作条（复制整条/重生成）、时间戳等聊天 chrome。
 - 用户气泡随短文本收缩宽度（当前填充至最大宽度）。
-
-## 已知与外壳无关的限制
-
-- 行内数学 `$...$` 暂未实现（仅块级 `$$...$$`），在消息中按字面显示。
