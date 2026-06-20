@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using WpfMarkdownViewer.Highlighting;
+using WpfMarkdownViewer.Model;
 
 namespace WpfMarkdownViewer.Rendering;
 
@@ -12,7 +13,7 @@ namespace WpfMarkdownViewer.Rendering;
 /// TextMate-highlighted monospace lines drawn with per-token foreground colors. Horizontal scrolling of
 /// very wide code is a later refinement; for now content beyond the width is clipped by the parent.
 /// </summary>
-internal sealed class CodeBlockView : FrameworkElement
+internal sealed class CodeBlockView : FrameworkElement, ISelectableText
 {
     private const double PadX = 12;
     private const double PadY = 10;
@@ -33,6 +34,12 @@ internal sealed class CodeBlockView : FrameworkElement
     private bool _copied;
     private DispatcherTimer? _resetTimer;
 
+    private readonly List<string> _lineTexts;
+    private double _charWidth;
+    private double _lineHeight;
+    private int _selStart = -1;
+    private int _selEnd = -1;
+
     public CodeBlockView(string code, string? language, IReadOnlyList<IReadOnlyList<ColoredSpan>> lines, MarkdownStyle theme)
     {
         _code = code;
@@ -41,6 +48,7 @@ internal sealed class CodeBlockView : FrameworkElement
         _theme = theme;
         _em = theme.EmSize - 1;
         _mono = new Typeface(theme.MonoTypeface.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        _lineTexts = lines.Select(spans => string.Concat(spans.Select(s => s.Text))).ToList();
     }
 
     private double Dpi
@@ -77,6 +85,10 @@ internal sealed class CodeBlockView : FrameworkElement
             contentHeight += ft.Height;
         }
 
+        _lineHeight = _formatted.Count > 0 ? _formatted[0].Height : _em * 1.4;
+        _charWidth = new FormattedText("0", CultureInfo.CurrentCulture, FlowDirection.LeftToRight, _mono, _em, _theme.Foreground, dpi)
+            .WidthIncludingTrailingWhitespace;
+
         double width = double.IsInfinity(availableSize.Width)
             ? contentWidth + 2 * PadX
             : availableSize.Width;
@@ -105,11 +117,58 @@ internal sealed class CodeBlockView : FrameworkElement
         _copyRect = new Rect(cx - 6, 0, copy.Width + 12, HeaderHeight);
 
         double y = HeaderHeight + PadY;
-        foreach (var ft in _formatted)
+        int off = 0;
+        for (int li = 0; li < _formatted.Count; li++)
         {
-            dc.DrawText(ft, new Point(PadX, y));
-            y += ft.Height;
+            int lineLen = li < _lineTexts.Count ? _lineTexts[li].Length : 0;
+            if (_selStart >= 0 && _selEnd > _selStart)
+            {
+                int s = Math.Max(_selStart, off);
+                int e = Math.Min(_selEnd, off + lineLen);
+                if (e > s)
+                    dc.DrawRectangle(_theme.SelectionBackground, null,
+                        new Rect(PadX + (s - off) * _charWidth, y, (e - s) * _charWidth, _formatted[li].Height));
+            }
+            dc.DrawText(_formatted[li], new Point(PadX, y));
+            y += _formatted[li].Height;
+            off += lineLen + 1; // +1 for the newline between lines
         }
+    }
+
+    // --- ISelectableText ---
+
+    public string SelectableText => _code;
+
+    public string MarkdownLinePrefix => string.Empty;
+
+    public IReadOnlyList<InlineRun> SelectedRuns(int start, int end)
+    {
+        start = Math.Clamp(start, 0, _code.Length);
+        end = Math.Clamp(end, 0, _code.Length);
+        return end > start
+            ? new[] { new InlineRun(0, _code[start..end], InlineStyle.None) }
+            : Array.Empty<InlineRun>();
+    }
+
+    public int OffsetAtPoint(Point p)
+    {
+        if (_lineTexts.Count == 0 || _lineHeight <= 0)
+            return 0;
+        int line = (int)Math.Floor((p.Y - (HeaderHeight + PadY)) / _lineHeight);
+        line = Math.Clamp(line, 0, _lineTexts.Count - 1);
+        int col = _charWidth > 0 ? (int)Math.Round((p.X - PadX) / _charWidth) : 0;
+        col = Math.Clamp(col, 0, _lineTexts[line].Length);
+        int off = 0;
+        for (int k = 0; k < line; k++)
+            off += _lineTexts[k].Length + 1;
+        return Math.Clamp(off + col, 0, _code.Length);
+    }
+
+    public void SetSelectedRange(int start, int end)
+    {
+        _selStart = Math.Clamp(Math.Min(start, end), 0, _code.Length);
+        _selEnd = Math.Clamp(Math.Max(start, end), 0, _code.Length);
+        InvalidateVisual();
     }
 
     protected override void OnMouseMove(MouseEventArgs e)

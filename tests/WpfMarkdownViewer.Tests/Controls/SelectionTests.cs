@@ -80,4 +80,20 @@ public class SelectionTests
 
         Assert.Equal("# Title\n- a\n- b", view.SelectAndGetMarkdownForTest(0, 0, 2, 1));
     }
+
+    [WpfFact]
+    public void CodeBlock_IsSelectable_AsItsOwnSegment()
+    {
+        var view = LaidOut("text\n\n```\nabc\ndef\n```\n\nmore");
+
+        Assert.Equal(new[] { "text", "abc\ndef", "more" }, view.SelectableTextsForTest());
+    }
+
+    [WpfFact]
+    public void CodeBlock_Selection_CopiesRawCode()
+    {
+        var view = LaidOut("text\n\n```\nabc\ndef\n```\n\nmore");
+
+        Assert.Equal("abc\ndef", view.SelectAndGetMarkdownForTest(1, 0, 1, 7));
+    }
 }
