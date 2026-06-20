@@ -46,6 +46,7 @@ public sealed record MarkdownStyle
     public Brush CodeBlockBackground { get; init; } = Frozen(0xf6, 0xf6, 0xf8);
     public Brush Border { get; init; } = Frozen(0xe3, 0xe3, 0xe8);
     public Brush QuoteBar { get; init; } = Frozen(0xd0, 0xd7, 0xde);
+    public Brush SelectionBackground { get; init; } = FrozenArgb(0x55, 0x33, 0x99, 0xff);
 
     public ThemeName TextMateTheme { get; init; } = ThemeName.LightPlus;
 
@@ -71,6 +72,13 @@ public sealed record MarkdownStyle
     private static SolidColorBrush Frozen(byte r, byte g, byte b)
     {
         var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static SolidColorBrush FrozenArgb(byte a, byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromArgb(a, r, g, b));
         brush.Freeze();
         return brush;
     }

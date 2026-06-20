@@ -11,7 +11,7 @@ namespace WpfMarkdownViewer.Rendering;
 /// TextFormatter and draws the resulting lines in <see cref="OnRender"/>. Used for paragraphs, headings,
 /// list items, quotes, and (monospace) the code box. Maps clicks back to a link target via hit-testing.
 /// </summary>
-internal sealed class ParagraphView : FrameworkElement
+internal sealed class ParagraphView : FrameworkElement, ISelectableText
 {
     private readonly MarkdownStyle _theme;
     private readonly double _emSize;
@@ -28,6 +28,8 @@ internal sealed class ParagraphView : FrameworkElement
     private TextFormatter? _formatter;
 
     private InlineProjection _projection;
+    private int _selStart = -1;
+    private int _selEnd = -1;
 
     public ParagraphView(InlineProjection projection, MarkdownStyle theme,
         double emSize, FontWeight weight, Brush? background = null, Thickness padding = default,
@@ -96,12 +98,60 @@ internal sealed class ParagraphView : FrameworkElement
         if (_background is not null)
             dc.DrawRectangle(_background, null, new Rect(new Point(0, 0), RenderSize));
 
+        bool hasSelection = _selStart >= 0 && _selEnd > _selStart;
         double y = _padding.Top;
+        int lineStart = 0;
         foreach (var line in _lines)
         {
+            if (hasSelection)
+            {
+                int s = Math.Max(_selStart, lineStart);
+                int e = Math.Min(_selEnd, lineStart + line.Length);
+                if (e > s)
+                    foreach (var bounds in line.GetTextBounds(s, e - s))
+                        dc.DrawRectangle(_theme.SelectionBackground, null,
+                            new Rect(bounds.Rectangle.X + _padding.Left, bounds.Rectangle.Y + y,
+                                bounds.Rectangle.Width, bounds.Rectangle.Height));
+            }
+
             line.Draw(dc, new Point(_padding.Left, y), InvertAxes.None);
             y += line.Height;
+            lineStart += line.Length;
         }
+    }
+
+    // --- ISelectableText ---
+
+    public string SelectableText => _projection.VisibleText;
+
+    public int OffsetAtPoint(Point point)
+    {
+        if (_lines.Count == 0)
+            return 0;
+        if (point.Y < _padding.Top)
+            return 0;
+
+        double y = _padding.Top;
+        int lineStart = 0;
+        foreach (var line in _lines)
+        {
+            if (point.Y < y + line.Height)
+            {
+                var hit = line.GetCharacterHitFromDistance(point.X - _padding.Left);
+                return Math.Clamp(hit.FirstCharacterIndex + hit.TrailingLength, 0, _projection.VisibleText.Length);
+            }
+            y += line.Height;
+            lineStart += line.Length;
+        }
+        return _projection.VisibleText.Length;
+    }
+
+    public void SetSelectedRange(int start, int end)
+    {
+        int len = _projection.VisibleText.Length;
+        _selStart = Math.Clamp(Math.Min(start, end), 0, len);
+        _selEnd = Math.Clamp(Math.Max(start, end), 0, len);
+        InvalidateVisual();
     }
 
     protected override void OnMouseMove(MouseEventArgs e)

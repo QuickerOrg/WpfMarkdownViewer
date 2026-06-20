@@ -3,6 +3,8 @@ using System.Text;
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using WpfMarkdownViewer.Model;
 using WpfMarkdownViewer.Rendering;
@@ -52,6 +54,8 @@ public class MarkdownDocumentView : Panel
     public MarkdownDocumentView()
     {
         Background = _theme.Background;
+        Focusable = true;
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, _) => CopySelection()));
         _pump = new DispatcherTimer(DispatcherPriority.Background) { Interval = _policy.MidInterval };
         _pump.Tick += OnPumpTick;
         _pump.Start();
@@ -240,6 +244,178 @@ public class MarkdownDocumentView : Panel
     protected override AutomationPeer OnCreateAutomationPeer() => new MarkdownDocumentAutomationPeer(this);
 
     private void RaiseLink(string url) => OnLinkClicked(url);
+
+    // --- Selection (ADR-0008): document-level drag-select over ParagraphView text leaves ---
+
+    private readonly List<ISelectableText> _selectables = new();
+    private (int Segment, int Offset) _anchor;
+    private (int Segment, int Offset) _focus;
+    private bool _selecting;
+    private bool _hasSelection;
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        if (e.Handled) // a child handled it (e.g. a link or the code copy button)
+            return;
+
+        RebuildSelectables();
+        if (_selectables.Count == 0)
+            return;
+
+        Focus();
+        _anchor = _focus = Locate(e.GetPosition(this));
+        _selecting = true;
+        ClearSelection();
+        CaptureMouse();
+        e.Handled = true;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (!_selecting)
+            return;
+        _focus = Locate(e.GetPosition(this));
+        ApplySelection();
+    }
+
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonUp(e);
+        if (!_selecting)
+            return;
+        _selecting = false;
+        ReleaseMouseCapture();
+    }
+
+    private void RebuildSelectables()
+    {
+        _selectables.Clear();
+        CollectSelectables(this);
+    }
+
+    private void CollectSelectables(DependencyObject node)
+    {
+        int count = VisualTreeHelper.GetChildrenCount(node);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is ISelectableText selectable)
+                _selectables.Add(selectable);
+            else
+                CollectSelectables(child);
+        }
+    }
+
+    private (int Segment, int Offset) Locate(Point p)
+    {
+        for (int i = 0; i < _selectables.Count; i++)
+        {
+            var fe = (FrameworkElement)_selectables[i];
+            Point topLeft = fe.TransformToAncestor(this).Transform(new Point(0, 0));
+            if (p.Y <= topLeft.Y + fe.RenderSize.Height)
+            {
+                double localY = Math.Clamp(p.Y - topLeft.Y, 0, Math.Max(0, fe.RenderSize.Height - 1));
+                return (i, _selectables[i].OffsetAtPoint(new Point(p.X - topLeft.X, localY)));
+            }
+        }
+        int last = _selectables.Count - 1;
+        return (last, _selectables[last].SelectableText.Length);
+    }
+
+    private (int Lo, int LoOff, int Hi, int HiOff) OrderedSelection()
+    {
+        bool anchorFirst = _anchor.Segment < _focus.Segment
+            || (_anchor.Segment == _focus.Segment && _anchor.Offset <= _focus.Offset);
+        return anchorFirst
+            ? (_anchor.Segment, _anchor.Offset, _focus.Segment, _focus.Offset)
+            : (_focus.Segment, _focus.Offset, _anchor.Segment, _anchor.Offset);
+    }
+
+    private void ApplySelection()
+    {
+        var (lo, loOff, hi, hiOff) = OrderedSelection();
+        _hasSelection = lo != hi || loOff != hiOff;
+        for (int i = 0; i < _selectables.Count; i++)
+        {
+            if (i < lo || i > hi)
+                _selectables[i].SetSelectedRange(0, 0);
+            else if (lo == hi)
+                _selectables[i].SetSelectedRange(loOff, hiOff);
+            else if (i == lo)
+                _selectables[i].SetSelectedRange(loOff, _selectables[i].SelectableText.Length);
+            else if (i == hi)
+                _selectables[i].SetSelectedRange(0, hiOff);
+            else
+                _selectables[i].SetSelectedRange(0, _selectables[i].SelectableText.Length);
+        }
+    }
+
+    private void ClearSelection()
+    {
+        _hasSelection = false;
+        foreach (var s in _selectables)
+            s.SetSelectedRange(0, 0);
+    }
+
+    /// <summary>Select all text and draw the highlight.</summary>
+    public void SelectAll()
+    {
+        RebuildSelectables();
+        if (_selectables.Count == 0)
+            return;
+        _anchor = (0, 0);
+        _focus = (_selectables.Count - 1, _selectables[^1].SelectableText.Length);
+        ApplySelection();
+    }
+
+    /// <summary>Copy the current selection as plain text (one segment per line). Basis for richer copy formats later.</summary>
+    public void CopySelection()
+    {
+        string text = BuildSelectedText();
+        if (text.Length > 0)
+            try { Clipboard.SetText(text); } catch { /* clipboard busy */ }
+    }
+
+    private string BuildSelectedText()
+    {
+        if (!_hasSelection || _selectables.Count == 0)
+            return string.Empty;
+
+        var (lo, loOff, hi, hiOff) = OrderedSelection();
+        var sb = new StringBuilder();
+        for (int i = lo; i <= hi; i++)
+        {
+            string text = _selectables[i].SelectableText;
+            int s = i == lo ? loOff : 0;
+            int e = i == hi ? hiOff : text.Length;
+            if (e > s)
+            {
+                if (sb.Length > 0)
+                    sb.Append('\n');
+                sb.Append(text[s..e]);
+            }
+        }
+        return sb.ToString();
+    }
+
+    // --- Test hooks ---
+
+    internal IReadOnlyList<string> SelectableTextsForTest()
+    {
+        RebuildSelectables();
+        return _selectables.Select(s => s.SelectableText).ToList();
+    }
+
+    internal string SelectAndGetTextForTest(int segA, int offA, int segB, int offB)
+    {
+        RebuildSelectables();
+        _anchor = (segA, offA);
+        _focus = (segB, offB);
+        ApplySelection();
+        return BuildSelectedText();
+    }
 
     protected virtual void OnLinkClicked(string url) =>
         LinkClicked?.Invoke(this, new LinkClickedEventArgs(url));

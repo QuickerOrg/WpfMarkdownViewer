@@ -135,7 +135,10 @@ public partial class MainWindow : Window
     {
         ApplyTheme(dark: false);
         Save("demo.png");
-        ApplyTheme(dark: true);
+        Viewer.SelectAll();
+        Viewer.UpdateLayout();
+        Save("demo-selection.png");
+        ApplyTheme(dark: true); // rebuilds block visuals, clearing the selection highlight
         Save("demo-dark.png");
         Viewer.MarkdownStyle = BuildCustomStyle();
         Save("demo-custom.png");
