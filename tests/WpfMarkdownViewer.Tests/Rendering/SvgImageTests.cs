@@ -33,4 +33,14 @@ public class SvgImageTests
     {
         Assert.Null(SvgImage.Parse(Encoding.UTF8.GetBytes("this is not svg")));
     }
+
+    [Theory]
+    [InlineData("<svg xmlns='...'></svg>", true)]
+    [InlineData("<?xml version='1.0'?>\n<svg></svg>", true)]
+    [InlineData("<html><body>no</body></html>", false)]
+    [InlineData("\x89PNG\r\n", false)]
+    public void LooksLikeSvg_SniffsContent(string content, bool expected)
+    {
+        Assert.Equal(expected, SvgImage.LooksLikeSvg(Encoding.UTF8.GetBytes(content)));
+    }
 }

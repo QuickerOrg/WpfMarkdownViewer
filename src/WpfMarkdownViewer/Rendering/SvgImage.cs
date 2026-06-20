@@ -1,5 +1,5 @@
 using System.IO;
-using System.Net.Http;
+using System.Text;
 using System.Windows.Media;
 using SharpVectors.Converters;
 using SharpVectors.Renderers.Wpf;
@@ -7,30 +7,26 @@ using SharpVectors.Renderers.Wpf;
 namespace WpfMarkdownViewer.Rendering;
 
 /// <summary>
-/// Loads SVG images as scalable WPF vector drawings via SharpVectors (M3, parity with LiveMarkdown). Unlike
-/// bitmaps these stay crisp at any size and follow no theme — the SVG's own colors are used. Parsing runs
-/// off the UI thread and the result is frozen, so it can be handed back to the UI cheaply.
+/// Parses SVG bytes into a scalable WPF vector drawing via SharpVectors (M3, parity with LiveMarkdown).
+/// Unlike bitmaps these stay crisp at any size and follow no theme — the SVG's own colors are used.
+/// Bytes are fetched by <see cref="ImageLoader"/>; parsing is done off the UI thread and the result frozen.
 /// </summary>
 internal static class SvgImage
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
-
+    /// <summary>Extension hint (the authoritative check is <see cref="LooksLikeSvg"/> on the fetched bytes).</summary>
     public static bool IsSvg(Uri uri) =>
         uri.AbsolutePath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase);
 
-    public static async Task<DrawingImage?> LoadAsync(Uri uri)
+    /// <summary>Sniff whether bytes are SVG (XML with an &lt;svg&gt; root), independent of URL extension.</summary>
+    public static bool LooksLikeSvg(byte[] bytes)
     {
-        try
-        {
-            byte[] bytes = uri.IsFile
-                ? await File.ReadAllBytesAsync(uri.LocalPath)
-                : await Http.GetByteArrayAsync(uri);
-            return await Task.Run(() => Parse(bytes));
-        }
-        catch
-        {
-            return null;
-        }
+        int n = Math.Min(bytes.Length, 512);
+        string head = Encoding.UTF8.GetString(bytes, 0, n);
+        int svg = head.IndexOf("<svg", StringComparison.OrdinalIgnoreCase);
+        if (svg < 0)
+            return false;
+        int xml = head.IndexOf("<?xml", StringComparison.OrdinalIgnoreCase);
+        return xml < 0 || xml <= svg; // only the XML prolog (if any) may precede <svg
     }
 
     public static DrawingImage? Parse(byte[] bytes)

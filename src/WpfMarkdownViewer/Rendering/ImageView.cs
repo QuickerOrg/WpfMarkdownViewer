@@ -51,57 +51,45 @@ internal sealed class ImageView : FrameworkElement
             return;
         }
 
-        if (SvgImage.IsSvg(uri))
+        _ = LoadAsync(uri);
+    }
+
+    private async Task LoadAsync(Uri uri)
+    {
+        byte[]? bytes = await ImageLoader.LoadBytesAsync(uri);
+        if (bytes is null || bytes.Length == 0)
         {
-            _ = LoadSvgAsync(uri);
+            OnFailed();
             return;
         }
 
-        string cacheFile = ImageCache.FileFor(_cacheKey);
-        if (File.Exists(cacheFile))
-        {
-            try
-            {
-                OnLoaded(LoadFromFile(cacheFile));
-                return;
-            }
-            catch { /* fall through to re-fetch */ }
-        }
+        // Sniff the content rather than trusting the extension, so SVG served without a .svg URL still works.
+        ImageSource? image = SvgImage.LooksLikeSvg(bytes)
+            ? await Task.Run(() => SvgImage.Parse(bytes))
+            : DecodeBitmap(bytes);
 
+        if (image is null)
+            OnFailed();
+        else
+            OnLoadedImage(image);
+    }
+
+    private static BitmapImage? DecodeBitmap(byte[] bytes)
+    {
         try
         {
             var bmp = new BitmapImage();
             bmp.BeginInit();
             bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.UriSource = uri;
+            bmp.StreamSource = new MemoryStream(bytes);
             bmp.EndInit();
-
-            if (bmp.IsDownloading)
-            {
-                bmp.DownloadCompleted += (_, _) => { ImageCache.Save(cacheFile, bmp); OnLoaded(bmp); };
-                bmp.DownloadFailed += (_, _) => OnFailed();
-                bmp.DecodeFailed += (_, _) => OnFailed();
-            }
-            else
-            {
-                ImageCache.Save(cacheFile, bmp);
-                OnLoaded(bmp);
-            }
+            bmp.Freeze();
+            return bmp;
         }
         catch
         {
-            _failed = true;
+            return null;
         }
-    }
-
-    private static BitmapImage LoadFromFile(string path)
-    {
-        var bmp = new BitmapImage();
-        bmp.BeginInit();
-        bmp.CacheOption = BitmapCacheOption.OnLoad;
-        bmp.UriSource = new Uri(path);
-        bmp.EndInit();
-        return bmp;
     }
 
     private static Uri? Resolve(string url, string? basePath)
@@ -120,22 +108,6 @@ internal sealed class ImageView : FrameworkElement
         {
             return null;
         }
-    }
-
-    private async Task LoadSvgAsync(Uri uri)
-    {
-        var image = await SvgImage.LoadAsync(uri);
-        if (image is null)
-            OnFailed();
-        else
-            OnLoadedImage(image);
-    }
-
-    private void OnLoaded(BitmapImage bmp)
-    {
-        if (bmp.CanFreeze)
-            bmp.Freeze();
-        OnLoadedImage(bmp);
     }
 
     private void OnLoadedImage(ImageSource image)
