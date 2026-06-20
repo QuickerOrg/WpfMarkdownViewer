@@ -62,4 +62,14 @@ public class SelectionTests
         // list items are nested ParagraphViews, collected as their own segments
         Assert.Equal(new[] { "one", "two", "para" }, view.SelectableTextsForTest());
     }
+
+    [WpfFact]
+    public void Copy_PreservesFormatting_AsMarkdownAndHtml()
+    {
+        // visible text: "hello bold world"; "bold" is at offsets 6..10
+        var view = LaidOut("hello **bold** world");
+
+        Assert.Equal("**bold**", view.SelectAndGetMarkdownForTest(0, 6, 0, 10));
+        Assert.Equal("<b>bold</b>", view.SelectAndGetHtmlForTest(0, 6, 0, 10));
+    }
 }

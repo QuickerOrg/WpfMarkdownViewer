@@ -1,4 +1,5 @@
 using System.Windows;
+using WpfMarkdownViewer.Model;
 
 namespace WpfMarkdownViewer.Rendering;
 
@@ -17,4 +18,7 @@ internal interface ISelectableText
 
     /// <summary>Highlight the visible range [start, end); pass an empty range to clear.</summary>
     void SetSelectedRange(int start, int end);
+
+    /// <summary>The styled inline runs covering [start, end), clipped to that range (for HTML/Markdown copy).</summary>
+    IReadOnlyList<InlineRun> SelectedRuns(int start, int end);
 }

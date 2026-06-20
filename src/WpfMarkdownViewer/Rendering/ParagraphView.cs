@@ -154,6 +154,23 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
         InvalidateVisual();
     }
 
+    public IReadOnlyList<InlineRun> SelectedRuns(int start, int end)
+    {
+        var result = new List<InlineRun>();
+        foreach (var run in _projection.Runs)
+        {
+            int s = Math.Max(run.VisibleStart, start);
+            int e = Math.Min(run.VisibleEnd, end);
+            if (e > s)
+                result.Add(run with
+                {
+                    VisibleStart = s - start,
+                    Text = run.Text.Substring(s - run.VisibleStart, e - s),
+                });
+        }
+        return result;
+    }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
         Cursor = LinkAt(e.GetPosition(this)) is not null ? Cursors.Hand : null;

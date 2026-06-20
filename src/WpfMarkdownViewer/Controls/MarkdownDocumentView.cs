@@ -447,12 +447,56 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
         ApplySelection();
     }
 
-    /// <summary>Copy the current selection as plain text (one segment per line). Basis for richer copy formats later.</summary>
+    /// <summary>Copy the current selection in three formats: plain text, HTML, and Markdown (ADR-0008).</summary>
     public void CopySelection()
     {
-        string text = BuildSelectedText();
-        if (text.Length > 0)
-            try { Clipboard.SetText(text); } catch { /* clipboard busy */ }
+        if (!_hasSelection || _selectables.Count == 0)
+            return;
+        string plain = BuildSelectedText();
+        if (plain.Length == 0)
+            return;
+        try
+        {
+            var data = new DataObject();
+            data.SetText(plain, TextDataFormat.UnicodeText);
+            data.SetText(BuildCfHtml(BuildSelectedHtml()), TextDataFormat.Html);
+            data.SetData("Markdown", BuildSelectedMarkdown());
+            Clipboard.SetDataObject(data, true);
+        }
+        catch { /* clipboard busy */ }
+    }
+
+    private IEnumerable<IReadOnlyList<InlineRun>> SelectedRunsPerSegment()
+    {
+        var (lo, loOff, hi, hiOff) = OrderedSelection();
+        for (int i = lo; i <= hi; i++)
+        {
+            int s = i == lo ? loOff : 0;
+            int e = i == hi ? hiOff : _selectables[i].SelectableText.Length;
+            if (e > s)
+                yield return _selectables[i].SelectedRuns(s, e);
+        }
+    }
+
+    private string BuildSelectedMarkdown() =>
+        string.Join("\n", SelectedRunsPerSegment().Select(Streaming.RunSerializer.ToMarkdown));
+
+    private string BuildSelectedHtml() =>
+        string.Join("<br>", SelectedRunsPerSegment().Select(Streaming.RunSerializer.ToHtml));
+
+    /// <summary>Wrap an HTML fragment in the CF_HTML clipboard format (with byte-offset header).</summary>
+    private static string BuildCfHtml(string fragment)
+    {
+        const string headerFormat =
+            "Version:0.9\r\nStartHTML:{0:D10}\r\nEndHTML:{1:D10}\r\nStartFragment:{2:D10}\r\nEndFragment:{3:D10}\r\n";
+        const string pre = "<html><body><!--StartFragment-->";
+        const string post = "<!--EndFragment--></body></html>";
+
+        int headerLen = Encoding.UTF8.GetByteCount(string.Format(headerFormat, 0, 0, 0, 0));
+        int startFragment = headerLen + Encoding.UTF8.GetByteCount(pre);
+        int endFragment = startFragment + Encoding.UTF8.GetByteCount(fragment);
+        int endHtml = endFragment + Encoding.UTF8.GetByteCount(post);
+        return string.Format(headerFormat, headerLen, endHtml, startFragment, endFragment) + pre + fragment + post;
     }
 
     private string BuildSelectedText()
@@ -492,6 +536,24 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
         _focus = (segB, offB);
         ApplySelection();
         return BuildSelectedText();
+    }
+
+    internal string SelectAndGetMarkdownForTest(int segA, int offA, int segB, int offB)
+    {
+        RebuildSelectables();
+        _anchor = (segA, offA);
+        _focus = (segB, offB);
+        ApplySelection();
+        return BuildSelectedMarkdown();
+    }
+
+    internal string SelectAndGetHtmlForTest(int segA, int offA, int segB, int offB)
+    {
+        RebuildSelectables();
+        _anchor = (segA, offA);
+        _focus = (segB, offB);
+        ApplySelection();
+        return BuildSelectedHtml();
     }
 
     protected virtual void OnLinkClicked(string url) =>
