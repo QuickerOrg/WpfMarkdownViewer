@@ -12,7 +12,7 @@ namespace WpfMarkdownViewer.Streaming;
 /// </summary>
 public static class InlineProjector
 {
-    public static InlineProjection Project(string source)
+    public static InlineProjection Project(string source, IReadOnlyDictionary<string, string>? linkDefs = null)
     {
         var visible = new StringBuilder();
         var runs = new List<InlineRun>();
@@ -32,6 +32,15 @@ public static class InlineProjector
         {
             pending.Append(c);
             visible.Append(c);
+        }
+
+        void EmitLink(string text, string url)
+        {
+            var inner = Project(text, linkDefs);
+            int baseOffset = visible.Length;
+            foreach (var run in inner.Runs)
+                runs.Add(run with { VisibleStart = baseOffset + run.VisibleStart, Style = run.Style | style, LinkTarget = url });
+            visible.Append(inner.VisibleText);
         }
 
         int i = 0;
@@ -138,12 +147,15 @@ public static class InlineProjector
             else if (c == '[' && TryReadLink(source, i, out string text, out string url, out int next))
             {
                 Flush();
-                var inner = Project(text);
-                int baseOffset = visible.Length;
-                foreach (var run in inner.Runs)
-                    runs.Add(run with { VisibleStart = baseOffset + run.VisibleStart, Style = run.Style | style, LinkTarget = url });
-                visible.Append(inner.VisibleText);
+                EmitLink(text, url);
                 i = next;
+            }
+            else if (c == '[' && linkDefs is not null
+                     && TryReadReferenceLink(source, i, linkDefs, out string refText, out string refUrl, out int refNext))
+            {
+                Flush();
+                EmitLink(refText, refUrl);
+                i = refNext;
             }
             else
             {
@@ -241,6 +253,44 @@ public static class InlineProjector
         for (int k = start; k < end; k++)
             if (s[k] == c) n++;
         return n;
+    }
+
+    /// <summary>Reference-style links resolved against the document's definitions: <c>[text][label]</c>, <c>[text][]</c>, <c>[label]</c>.</summary>
+    private static bool TryReadReferenceLink(string s, int i, IReadOnlyDictionary<string, string> defs,
+        out string text, out string url, out int next)
+    {
+        text = string.Empty;
+        url = string.Empty;
+        next = i;
+        int close = s.IndexOf(']', i + 1);
+        if (close < 0)
+            return false;
+        string inner = s[(i + 1)..close];
+
+        int after = close + 1;
+        if (after < s.Length && s[after] == '[')
+        {
+            int close2 = s.IndexOf(']', after + 1);
+            if (close2 < 0)
+                return false;
+            string label = s[(after + 1)..close2].Trim();
+            if (label.Length == 0)
+                label = inner.Trim(); // [text][] collapsed reference
+            if (!defs.TryGetValue(label, out string? full))
+                return false;
+            text = inner;
+            url = full;
+            next = close2 + 1;
+            return true;
+        }
+
+        // [label] shortcut reference
+        if (!defs.TryGetValue(inner.Trim(), out string? shortUrl))
+            return false;
+        text = inner;
+        url = shortUrl;
+        next = close + 1;
+        return true;
     }
 
     private static bool TryReadLink(string s, int i, out string text, out string url, out int next)

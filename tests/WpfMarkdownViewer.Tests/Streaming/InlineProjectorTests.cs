@@ -125,4 +125,37 @@ public class InlineProjectorTests
         var p = InlineProjector.Project("a $x");
         Assert.Equal("a $x", p.VisibleText);
     }
+
+    private static readonly Dictionary<string, string> Defs =
+        new(StringComparer.OrdinalIgnoreCase) { ["ref"] = "http://x", ["the site"] = "http://y" };
+
+    [Fact]
+    public void ReferenceLink_Full_ResolvesAgainstDefinitions()
+    {
+        var p = InlineProjector.Project("see [the site][ref] end", Defs);
+        Assert.Equal("see the site end", p.VisibleText);
+        Assert.Contains(p.Runs, r => r.Text == "the site" && r.LinkTarget == "http://x");
+    }
+
+    [Fact]
+    public void ReferenceLink_Collapsed_UsesTextAsLabel()
+    {
+        var p = InlineProjector.Project("[the site][] here", Defs);
+        Assert.Equal("the site here", p.VisibleText);
+        Assert.Contains(p.Runs, r => r.Text == "the site" && r.LinkTarget == "http://y");
+    }
+
+    [Fact]
+    public void ReferenceLink_Shortcut_Resolves()
+    {
+        var p = InlineProjector.Project("go [ref] now", Defs);
+        Assert.Contains(p.Runs, r => r.Text == "ref" && r.LinkTarget == "http://x");
+    }
+
+    [Fact]
+    public void ReferenceLink_Unknown_StaysLiteral()
+    {
+        var p = InlineProjector.Project("[a][missing]", Defs);
+        Assert.Equal("[a][missing]", p.VisibleText);
+    }
 }

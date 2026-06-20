@@ -10,6 +10,10 @@ public sealed class Document
 
     public IReadOnlyList<MdBlock> Blocks => _blocks;
 
+    /// <summary>Collected <c>[label]: url</c> reference-link definitions (label → url), case-insensitive. Populated by the parser.</summary>
+    public IReadOnlyDictionary<string, string> LinkDefinitions { get; internal set; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// The Active Block: the single trailing Block that is not yet finalized, or <c>null</c> if the
     /// Document is empty or its last Block is already finalized.

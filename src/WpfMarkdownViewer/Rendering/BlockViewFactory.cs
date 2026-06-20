@@ -18,10 +18,11 @@ internal static class BlockViewFactory
     private static CodeHighlighter HighlighterFor(ThemeName theme) =>
         Highlighters.GetOrAdd(theme, t => new CodeHighlighter(t));
 
-    public static FrameworkElement Create(MdBlock block, MarkdownStyle theme, Action<string>? onLink = null, string? imageBasePath = null) => block switch
+    public static FrameworkElement Create(MdBlock block, MarkdownStyle theme, Action<string>? onLink = null,
+        string? imageBasePath = null, IReadOnlyDictionary<string, string>? linkDefs = null) => block switch
     {
         HeadingBlock h => new ParagraphView(
-            InlineProjector.Project(InlineSource.Extract(h)), theme,
+            InlineProjector.Project(InlineSource.Extract(h), linkDefs), theme,
             emSize: theme.HeadingEm(h.Level), weight: theme.HeadingWeight,
             lineHeightFactor: theme.HeadingLineHeight, onLink: onLink,
             markdownPrefix: new string('#', Math.Clamp(h.Level, 1, 6)) + " "),
@@ -41,7 +42,7 @@ internal static class BlockViewFactory
         QuoteBlock q => new QuoteView(q, theme, onLink),
 
         _ => new ParagraphView(
-            InlineProjector.Project(InlineSource.Extract(block)), theme,
+            InlineProjector.Project(InlineSource.Extract(block), linkDefs), theme,
             emSize: theme.EmSize, weight: FontWeights.Normal,
             lineHeightFactor: theme.ParagraphLineHeight, onLink: onLink),
     };

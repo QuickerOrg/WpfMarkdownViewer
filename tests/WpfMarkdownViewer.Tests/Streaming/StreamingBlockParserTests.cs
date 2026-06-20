@@ -22,6 +22,16 @@ public class StreamingBlockParserTests
     }
 
     [Fact]
+    public void LinkDefinitions_AreCollected_AndNotRenderedAsBlocks()
+    {
+        var doc = Parse("See [the site][ref] for more.\n\n[ref]: https://example.com \"title\"", complete: true).Document;
+
+        Assert.Equal("https://example.com", doc.LinkDefinitions["ref"]);
+        var p = Assert.Single(doc.Blocks); // the [ref]: … definition line is not a block
+        Assert.Equal(BlockKind.Paragraph, p.Kind);
+    }
+
+    [Fact]
     public void GrowingParagraph_IsActiveNotFinalized()
     {
         var doc = Parse("hello wor").Document;

@@ -246,7 +246,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
 
         for (int i = _stableCount; i < blocks.Count; i++)
         {
-            var view = BlockViewFactory.Create(blocks[i], _theme, RaiseLink);
+            var view = BlockViewFactory.Create(blocks[i], _theme, RaiseLink, ImageBasePath, Document.LinkDefinitions);
             InternalChildren.Add(view);
             _slots.Add(new BlockSlot { Block = blocks[i], View = view });
         }
@@ -329,7 +329,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
                 || (slot.Y <= bufBottom && slot.Y + Math.Max(slot.Height, EstimatedBlockHeight) >= bufTop);
             if (onScreen && slot.View is null)
             {
-                slot.View = BlockViewFactory.Create(slot.Block, _theme, RaiseLink, ImageBasePath);
+                slot.View = BlockViewFactory.Create(slot.Block, _theme, RaiseLink, ImageBasePath, Document.LinkDefinitions);
                 InternalChildren.Add(slot.View);
             }
             else if (!onScreen && slot.View is { } v && slot.Finalized)

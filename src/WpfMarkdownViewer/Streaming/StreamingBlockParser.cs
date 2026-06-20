@@ -21,6 +21,7 @@ public sealed class StreamingBlockParser
     public void Reparse(string source, bool streamComplete)
     {
         var lines = SplitLines(source);
+        Document.LinkDefinitions = CollectLinkDefinitions(lines);
         Document.SetBlocks(Segment(source, lines, streamComplete));
     }
 
@@ -28,8 +29,47 @@ public sealed class StreamingBlockParser
     /// Finalize the Document authoritatively from Markdig (ADR-0002). Replaces the streaming preview
     /// with Markdig's parse; every Block is finalized. Called when the stream completes.
     /// </summary>
-    public void FinalizeFromMarkdig(string source) =>
+    public void FinalizeFromMarkdig(string source)
+    {
+        Document.LinkDefinitions = CollectLinkDefinitions(SplitLines(source));
         Document.SetBlocks(MarkdigBlockReader.Read(source));
+    }
+
+    private static Dictionary<string, string> CollectLinkDefinitions(List<SourceLine> lines)
+    {
+        var defs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in lines)
+            if (TryLinkDefinition(line.Text, out string label, out string url))
+                defs.TryAdd(label, url);
+        return defs;
+    }
+
+    /// <summary>A standalone <c>[label]: url ["title"]</c> reference-link definition (not a footnote, which starts with <c>^</c>).</summary>
+    internal static bool TryLinkDefinition(string text, out string label, out string url)
+    {
+        label = string.Empty;
+        url = string.Empty;
+        string t = text.TrimStart();
+        if (!t.StartsWith('['))
+            return false;
+        int close = t.IndexOf(']');
+        if (close < 2 || close + 1 >= t.Length || t[close + 1] != ':')
+            return false;
+
+        label = t[1..close].Trim();
+        if (label.Length == 0 || label[0] == '^')
+            return false;
+
+        string rest = t[(close + 2)..].Trim();
+        if (rest.Length == 0)
+            return false;
+        int sp = rest.IndexOfAny(new[] { ' ', '\t' });
+        string u = sp < 0 ? rest : rest[..sp];
+        if (u.Length >= 2 && u[0] == '<' && u[^1] == '>')
+            u = u[1..^1];
+        url = u;
+        return url.Length > 0;
+    }
 
     internal readonly record struct SourceLine(int Start, string Text, bool HasNewline);
 
@@ -56,9 +96,9 @@ public sealed class StreamingBlockParser
         int i = 0;
         while (i < lines.Count)
         {
-            if (IsBlank(lines[i].Text))
+            if (IsBlank(lines[i].Text) || TryLinkDefinition(lines[i].Text, out _, out _))
             {
-                i++;
+                i++; // blank line or a [label]: url definition — not rendered content
                 continue;
             }
 
