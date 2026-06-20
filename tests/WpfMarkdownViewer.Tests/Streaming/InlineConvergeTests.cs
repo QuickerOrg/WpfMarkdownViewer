@@ -31,6 +31,13 @@ public class InlineConvergeTests
         yield return ["two $x^2$ and $y_1$ formulas"];
         yield return ["price $5 and $10 literal"];
         yield return ["mix **b** and $z$ and `c`"];
+        yield return ["see https://example.com/path now"];
+        yield return ["visit www.example.org today"];
+        yield return ["wrap (https://en.wikipedia.org/wiki/Foo_(bar)) end"];
+        yield return ["email at https://x.io, then more"];
+        yield return ["H<sub>2</sub>O and x<sup>2</sup>"];
+        yield return ["this is <b>bold</b> and <i>it</i>"];
+        yield return ["mix <mark>hi</mark> with **b**"];
     }
 
     [Theory]

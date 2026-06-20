@@ -3,6 +3,7 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using WpfMarkdownViewer.Model;
+using WpfMarkdownViewer.Streaming;
 
 namespace WpfMarkdownViewer.Parsing;
 
@@ -31,30 +32,42 @@ public static class MarkdigInlineProjector
 
     private static void Walk(ContainerInline container, InlineStyle style, string? link, StringBuilder visible, List<InlineRun> runs)
     {
+        // Raw inline HTML tags (e.g. <b>…</b>) toggle a style across the following siblings, so the effective
+        // style is mutable as we iterate — matching the streaming projector for Converge.
+        InlineStyle current = style;
         foreach (var inline in container)
         {
             switch (inline)
             {
                 case LiteralInline literal:
-                    Emit(literal.Content.ToString(), style, link, visible, runs);
+                    Emit(literal.Content.ToString(), current, link, visible, runs);
                     break;
                 case CodeInline code:
-                    Emit(code.Content, style | InlineStyle.Code, link, visible, runs);
+                    Emit(code.Content, current | InlineStyle.Code, link, visible, runs);
                     break;
                 case Markdig.Extensions.Mathematics.MathInline math:
-                    Emit(math.Content.ToString(), style | InlineStyle.Math, link, visible, runs);
+                    Emit(math.Content.ToString(), current | InlineStyle.Math, link, visible, runs);
+                    break;
+                case AutolinkInline auto:
+                    Emit(auto.Url, current, auto.Url, visible, runs);
+                    break;
+                case HtmlInline html when InlineHtml.TryRead(html.Tag, 0, out var tag):
+                    if (tag.IsBreak)
+                        Emit("\n", current, link, visible, runs);
+                    else if (tag.Style != InlineStyle.None)
+                        current ^= tag.Style;
                     break;
                 case EmphasisInline emphasis:
-                    Walk(emphasis, style | EmphasisStyle(emphasis), link, visible, runs);
+                    Walk(emphasis, current | EmphasisStyle(emphasis), link, visible, runs);
                     break;
                 case LinkInline { IsImage: false } anchor:
-                    Walk(anchor, style, anchor.Url ?? string.Empty, visible, runs);
+                    Walk(anchor, current, anchor.Url ?? string.Empty, visible, runs);
                     break;
                 case LineBreakInline:
-                    Emit(" ", style, link, visible, runs);
+                    Emit(" ", current, link, visible, runs);
                     break;
                 case ContainerInline nested:
-                    Walk(nested, style, link, visible, runs);
+                    Walk(nested, current, link, visible, runs);
                     break;
             }
         }

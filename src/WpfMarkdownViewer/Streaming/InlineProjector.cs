@@ -112,6 +112,29 @@ public static class InlineProjector
                 visible.Append(latex);
                 i = afterMath;
             }
+            else if (c == '<' && InlineHtml.TryRead(source, i, out var tag))
+            {
+                if (tag.IsBreak)
+                {
+                    AppendChar('\n'); // <br> ⇒ hard line break
+                }
+                else
+                {
+                    Flush();
+                    if (tag.Style != InlineStyle.None)
+                        style ^= tag.Style; // <b>/<sub>/… toggle; unknown tags drop
+                }
+                i = tag.Next;
+            }
+            else if ((c == 'h' || c == 'w' || c == 'H' || c == 'W')
+                     && AtUrlBoundary(source, i) && TryReadAutolink(source, i, out string autoUrl, out int autoEnd))
+            {
+                Flush();
+                string shown = source[i..autoEnd];
+                runs.Add(new InlineRun(visible.Length, shown, style, autoUrl));
+                visible.Append(shown);
+                i = autoEnd;
+            }
             else if (c == '[' && TryReadLink(source, i, out string text, out string url, out int next))
             {
                 Flush();
@@ -169,6 +192,55 @@ public static class InlineProjector
             }
         }
         return false;
+    }
+
+    private static bool AtUrlBoundary(string s, int i) => i == 0 || !char.IsLetterOrDigit(s[i - 1]);
+
+    /// <summary>
+    /// GFM-style bare autolink: <c>http(s)://…</c> or <c>www.…</c> up to whitespace/<c>&lt;</c>, trimming trailing
+    /// punctuation (unbalanced <c>)</c> included). <c>www.</c> links get an <c>http://</c> target.
+    /// </summary>
+    private static bool TryReadAutolink(string s, int i, out string url, out int next)
+    {
+        url = string.Empty;
+        next = i;
+        bool www = false;
+        if (StartsWithAt(s, i, "http://") || StartsWithAt(s, i, "https://")) { }
+        else if (StartsWithAt(s, i, "www.")) www = true;
+        else return false;
+
+        int schemeEnd = i + (www ? 4 : s[i + 4] == 's' ? 8 : 7);
+        int j = schemeEnd;
+        while (j < s.Length && !char.IsWhiteSpace(s[j]) && s[j] is not ('<' or '>'))
+            j++;
+
+        while (j > schemeEnd && IsTrailingPunctuation(s[j - 1]))
+        {
+            if (s[j - 1] == ')' && CountChar(s, i, j, ')') <= CountChar(s, i, j, '('))
+                break;
+            j--;
+        }
+
+        if (j <= schemeEnd)
+            return false;
+
+        string shown = s[i..j];
+        url = www ? "http://" + shown : shown;
+        next = j;
+        return true;
+    }
+
+    private static bool StartsWithAt(string s, int i, string prefix) =>
+        i + prefix.Length <= s.Length && string.Compare(s, i, prefix, 0, prefix.Length, StringComparison.OrdinalIgnoreCase) == 0;
+
+    private static bool IsTrailingPunctuation(char c) => c is '.' or ',' or ';' or ':' or '!' or '?' or ')' or '"' or '\'';
+
+    private static int CountChar(string s, int start, int end, char c)
+    {
+        int n = 0;
+        for (int k = start; k < end; k++)
+            if (s[k] == c) n++;
+        return n;
     }
 
     private static bool TryReadLink(string s, int i, out string text, out string url, out int next)

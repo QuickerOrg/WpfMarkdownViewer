@@ -30,6 +30,10 @@ internal sealed class InlineTextSource : TextSource
         if (index >= text.Length)
             return new TextEndOfParagraph(1);
 
+        // A hard line break (kept as '\n' by InlineSource) ends the current line.
+        if (text[index] == '\n')
+            return new TextEndOfLine(1);
+
         InlineRun run = RunAt(index);
 
         // Inline math renders as one embedded vector formula spanning its whole run; on parse failure it
@@ -45,8 +49,12 @@ internal sealed class InlineTextSource : TextSource
                 geometry, bounds, _theme.Foreground, axisHeight: _emSize * 0.26);
         }
 
-        int length = run.VisibleEnd - index;
-        return new TextCharacters(text, index, length, PropsFor(run));
+        // Stop the run before the next hard break so the '\n' is emitted as its own TextEndOfLine.
+        int end = run.VisibleEnd;
+        int nl = text.IndexOf('\n', index, end - index);
+        if (nl >= 0)
+            end = nl;
+        return new TextCharacters(text, index, end - index, PropsFor(run));
     }
 
     public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int indexLimit) =>

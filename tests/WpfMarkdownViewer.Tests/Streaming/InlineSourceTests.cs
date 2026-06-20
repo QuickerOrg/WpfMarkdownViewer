@@ -25,4 +25,18 @@ public class InlineSourceTests
         var p = new ParagraphBlock { RawText = "line one\nline two\n" };
         Assert.Equal("line one line two", InlineSource.Extract(p));
     }
+
+    [Fact]
+    public void Paragraph_TwoTrailingSpaces_IsHardBreak()
+    {
+        var p = new ParagraphBlock { RawText = "line one  \nline two" };
+        Assert.Equal("line one\nline two", InlineSource.Extract(p));
+    }
+
+    [Fact]
+    public void Paragraph_TrailingBackslash_IsHardBreak()
+    {
+        var p = new ParagraphBlock { RawText = "line one\\\nline two" };
+        Assert.Equal("line one\nline two", InlineSource.Extract(p));
+    }
 }

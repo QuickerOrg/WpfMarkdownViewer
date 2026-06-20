@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text;
 using System.Windows.Media;
 using Mermaider;
@@ -30,13 +29,13 @@ public static class Mermaid
 /// <summary>Built-in renderer: Mermaider parses + lays out + renders the diagram to SVG (off the UI thread), then SharpVectors turns it into a scalable vector drawing. Results are cached per source + theme.</summary>
 internal sealed class BuiltInMermaidRenderer : IMermaidRenderer
 {
-    private static readonly ConcurrentDictionary<string, ImageSource> Cache = new();
+    private static readonly LruCache<string, ImageSource> Cache = new(capacity: 48);
 
     public Task<ImageSource?> RenderAsync(MermaidRequest request, CancellationToken cancellationToken = default)
     {
         var theme = request.Theme;
         string key = string.Join('|', request.Source, Hex(theme.Background), Hex(theme.Foreground), Hex(theme.Border), Hex(theme.LinkBrush));
-        if (Cache.TryGetValue(key, out var cached))
+        if (Cache.TryGet(key, out var cached))
             return Task.FromResult<ImageSource?>(cached);
 
         return Task.Run(() =>
@@ -58,7 +57,7 @@ internal sealed class BuiltInMermaidRenderer : IMermaidRenderer
                 svg = MermaidSvgFlattener.Flatten(svg); // resolve CSS vars/color-mix that SharpVectors can't
                 var image = SvgImage.Parse(Encoding.UTF8.GetBytes(svg));
                 if (image is not null)
-                    Cache[key] = image;
+                    Cache.Set(key, image);
                 return image;
             }
             catch
