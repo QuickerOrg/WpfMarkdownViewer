@@ -24,4 +24,10 @@ internal interface ISelectableText
 
     /// <summary>Block-level Markdown prefix for this segment when copied (e.g. "## ", "- ", "&gt; "); empty for a plain paragraph.</summary>
     string MarkdownLinePrefix { get; }
+
+    /// <summary>
+    /// Full Markdown for a block whose source can't be rebuilt from inline runs alone — a fenced code block
+    /// or a pipe table. Returns null for ordinary text leaves, which copy via prefix + inline runs instead.
+    /// </summary>
+    string? SelectedBlockMarkdown(int start, int end) => null;
 }

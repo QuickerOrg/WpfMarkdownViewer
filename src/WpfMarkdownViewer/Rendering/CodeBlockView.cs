@@ -24,6 +24,7 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
 
     private readonly string _code;
     private readonly string _languageLabel;
+    private readonly string _fenceLang;
     private readonly IReadOnlyList<IReadOnlyList<ColoredSpan>> _lines;
     private readonly MarkdownStyle _theme;
     private readonly Typeface _mono;
@@ -43,6 +44,7 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
     public CodeBlockView(string code, string? language, IReadOnlyList<IReadOnlyList<ColoredSpan>> lines, MarkdownStyle theme)
     {
         _code = code;
+        _fenceLang = language?.Trim() ?? string.Empty;
         _languageLabel = string.IsNullOrWhiteSpace(language) ? "code" : language!.Trim();
         _lines = lines;
         _theme = theme;
@@ -140,6 +142,16 @@ internal sealed class CodeBlockView : FrameworkElement, ISelectableText
     public string SelectableText => _code;
 
     public string MarkdownLinePrefix => string.Empty;
+
+    // Copy as a fenced block so the Markdown round-trips (the raw code alone loses the ``` fence + language).
+    public string? SelectedBlockMarkdown(int start, int end)
+    {
+        start = Math.Clamp(start, 0, _code.Length);
+        end = Math.Clamp(end, 0, _code.Length);
+        if (end <= start)
+            return string.Empty;
+        return $"```{_fenceLang}\n{_code[start..end]}\n```";
+    }
 
     public IReadOnlyList<InlineRun> SelectedRuns(int start, int end)
     {

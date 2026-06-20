@@ -70,6 +70,9 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
     /// <summary>When false, all Blocks stay realized (no virtualization) — e.g. for printing/snapshots. Default true.</summary>
     public bool VirtualizationEnabled { get; set; } = true;
 
+    /// <summary>When true, the measured width shrinks to the content (capped at the available width) instead of filling it — used for user chat bubbles (M3). Default false.</summary>
+    public bool ShrinkToContentWidth { get; set; }
+
     /// <summary>Base path or URI for resolving relative image URLs (M2-4). Null ⇒ only absolute URLs load.</summary>
     public string? ImageBasePath { get; set; }
 
@@ -302,7 +305,10 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
         }
 
         double contentBottom = _slots.Count > 0 ? y - spacing : pad.Top;
-        double width = double.IsInfinity(availW) ? maxW + pad.Left + pad.Right : availW;
+        double natural = maxW + pad.Left + pad.Right;
+        double width = double.IsInfinity(availW) ? natural
+            : ShrinkToContentWidth ? Math.Min(availW, natural)
+            : availW;
         return new Size(width, contentBottom + pad.Bottom);
     }
 
@@ -450,7 +456,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
         ApplySelection();
     }
 
-    /// <summary>Copy the current selection in three formats: plain text, HTML, and Markdown (ADR-0008).</summary>
+    /// <summary>Copy the current selection as plain-text Markdown only (the text IS the Markdown source, so it round-trips into any editor).</summary>
     public void CopySelection()
     {
         if (!_hasSelection || _selectables.Count == 0)
@@ -461,10 +467,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
         try
         {
             var data = new DataObject();
-            // Plain text IS the Markdown source (so pasting anywhere yields Markdown); HTML carries the formatting.
             data.SetText(markdown, TextDataFormat.UnicodeText);
-            data.SetText(BuildCfHtml(BuildSelectedHtml()), TextDataFormat.Html);
-            data.SetData("Markdown", markdown);
             Clipboard.SetDataObject(data, true);
         }
         catch { /* clipboard busy */ }
@@ -484,37 +487,41 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent
 
     private string BuildSelectedMarkdown()
     {
-        var (lo, loOff, _, _) = OrderedSelection();
+        var (lo, loOff, hi, hiOff) = OrderedSelection();
         var sb = new StringBuilder();
-        foreach (var (index, runs) in SelectedRunsPerSegment())
+        bool prevBlock = false;
+        for (int i = lo; i <= hi; i++)
         {
+            int s = i == lo ? loOff : 0;
+            int e = i == hi ? hiOff : _selectables[i].SelectableText.Length;
+            if (e <= s)
+                continue;
+
+            string piece;
+            bool block = false;
+            // Code blocks and tables rebuild their own block Markdown; ordinary text uses prefix + inline runs.
+            if (_selectables[i].SelectedBlockMarkdown(s, e) is { Length: > 0 } blockMd)
+            {
+                piece = blockMd;
+                block = true;
+            }
+            else
+            {
+                string prefix = i != lo || loOff == 0 ? _selectables[i].MarkdownLinePrefix : string.Empty;
+                piece = prefix + Streaming.RunSerializer.ToMarkdown(_selectables[i].SelectedRuns(s, e));
+            }
+
             if (sb.Length > 0)
-                sb.Append('\n');
-            // Include the block prefix unless this is the first segment and the selection starts mid-line.
-            if (index != lo || loOff == 0)
-                sb.Append(_selectables[index].MarkdownLinePrefix);
-            sb.Append(Streaming.RunSerializer.ToMarkdown(runs));
+                sb.Append(block || prevBlock ? "\n\n" : "\n"); // blank line around block elements
+            sb.Append(piece);
+            prevBlock = block;
         }
         return sb.ToString();
     }
 
+    // Retained for the HTML test hook (ADR-0008 keeps the run→HTML mapping); no longer placed on the clipboard.
     private string BuildSelectedHtml() =>
         string.Join("<br>", SelectedRunsPerSegment().Select(x => Streaming.RunSerializer.ToHtml(x.Runs)));
-
-    /// <summary>Wrap an HTML fragment in the CF_HTML clipboard format (with byte-offset header).</summary>
-    private static string BuildCfHtml(string fragment)
-    {
-        const string headerFormat =
-            "Version:0.9\r\nStartHTML:{0:D10}\r\nEndHTML:{1:D10}\r\nStartFragment:{2:D10}\r\nEndFragment:{3:D10}\r\n";
-        const string pre = "<html><body><!--StartFragment-->";
-        const string post = "<!--EndFragment--></body></html>";
-
-        int headerLen = Encoding.UTF8.GetByteCount(string.Format(headerFormat, 0, 0, 0, 0));
-        int startFragment = headerLen + Encoding.UTF8.GetByteCount(pre);
-        int endFragment = startFragment + Encoding.UTF8.GetByteCount(fragment);
-        int endHtml = endFragment + Encoding.UTF8.GetByteCount(post);
-        return string.Format(headerFormat, headerLen, endHtml, startFragment, endFragment) + pre + fragment + post;
-    }
 
     private string BuildSelectedText()
     {

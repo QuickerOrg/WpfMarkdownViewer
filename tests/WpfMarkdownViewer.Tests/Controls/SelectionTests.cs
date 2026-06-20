@@ -90,10 +90,33 @@ public class SelectionTests
     }
 
     [WpfFact]
-    public void CodeBlock_Selection_CopiesRawCode()
+    public void CodeBlock_Selection_CopiesFencedMarkdown()
     {
-        var view = LaidOut("text\n\n```\nabc\ndef\n```\n\nmore");
+        var view = LaidOut("text\n\n```csharp\nabc\ndef\n```\n\nmore");
 
-        Assert.Equal("abc\ndef", view.SelectAndGetMarkdownForTest(1, 0, 1, 7));
+        // The code segment is index 1; copy wraps it back in a ``` fence with its language.
+        Assert.Equal("```csharp\nabc\ndef\n```", view.SelectAndGetMarkdownForTest(1, 0, 1, 7));
+    }
+
+    [WpfFact]
+    public void Table_Selection_CopiesRebuiltPipeMarkdown()
+    {
+        var view = LaidOut("| h1 | h2 |\n| --- | --- |\n| a | b |");
+
+        // The table is one atomic selectable (segment 0); copy rebuilds the pipe table incl. the header rule.
+        string md = view.SelectAndGetMarkdownForTest(0, 0, 0, 999);
+
+        Assert.Equal("| h1 | h2 |\n| --- | --- |\n| a | b |", md);
+    }
+
+    [WpfFact]
+    public void Selection_AcrossParagraphCodeAndTable_KeepsBlockMarkdown()
+    {
+        var view = LaidOut("intro\n\n```\ncode\n```\n\n| h |\n| - |\n| v |");
+
+        // Segments: 0 paragraph, 1 code block, 2 table. Select all of them.
+        string md = view.SelectAndGetMarkdownForTest(0, 0, 2, 999);
+
+        Assert.Equal("intro\n\n```\ncode\n```\n\n| h |\n| --- |\n| v |", md);
     }
 }

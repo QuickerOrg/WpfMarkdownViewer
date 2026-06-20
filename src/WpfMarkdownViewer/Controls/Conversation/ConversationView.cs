@@ -166,6 +166,7 @@ public class ConversationView : Panel, IVirtualizingContent
         {
             MarkdownStyle = StyleForRole(slot.Role),
             VirtualizationEnabled = VirtualizationEnabled,
+            ShrinkToContentWidth = slot.Role == ChatRole.User, // user bubbles hug their content
         };
         view.LinkClicked += OnChildLinkClicked;
         slot.View = view;

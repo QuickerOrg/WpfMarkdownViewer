@@ -1,3 +1,4 @@
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -9,8 +10,10 @@ namespace WpfMarkdownViewer.Rendering;
 /// <summary>
 /// A self-drawn GitHub-flavored table: a grid of inline-projected cells with a shaded, bold header row
 /// and 1px borders. Column widths size to content (capped); cells wrap within their column. M1 scope.
+/// For selection/copy the table is one atomic leaf (ADR-0008): touching it selects the whole table and
+/// copies a rebuilt pipe-table Markdown, since the per-cell grid can't be reconstructed from cell text alone.
 /// </summary>
-internal sealed class TableView : Panel
+internal sealed class TableView : Panel, ISelectableText
 {
     private const double MaxColContent = 320;
     private const double MinColContent = 24;
@@ -24,12 +27,18 @@ internal sealed class TableView : Panel
     private double[] _colW = Array.Empty<double>();
     private double[] _rowH = Array.Empty<double>();
 
+    private readonly string _plain;     // tab/newline flattening — Visible-Space text for hit-testing & selection length
+    private readonly string _markdown;   // rebuilt pipe table for copy
+    private bool _selected;
+
     public TableView(TableBlock table, MarkdownStyle theme, Action<string>? onLink = null)
     {
         _theme = theme;
         var rows = Parse(table.RawText);
         _rows = rows.Count;
         _cols = rows.Count == 0 ? 0 : rows.Max(r => r.Count);
+        _plain = string.Join("\n", rows.Select(r => string.Join("\t", r)));
+        _markdown = BuildMarkdown(rows, _cols);
 
         for (int r = 0; r < _rows; r++)
         {
@@ -121,6 +130,51 @@ internal sealed class TableView : Panel
             if (c < _cols)
                 x += _colW[c];
         }
+
+        if (_selected)
+            dc.DrawRectangle(_theme.SelectionBackground, null, new Rect(0, 0, tableW, tableH));
+    }
+
+    // --- ISelectableText (atomic: the whole table selects and copies as one unit) ---
+
+    public string SelectableText => _plain;
+
+    public string MarkdownLinePrefix => string.Empty;
+
+    public string? SelectedBlockMarkdown(int start, int end) => end > start ? _markdown : string.Empty;
+
+    public IReadOnlyList<InlineRun> SelectedRuns(int start, int end)
+    {
+        start = Math.Clamp(start, 0, _plain.Length);
+        end = Math.Clamp(end, 0, _plain.Length);
+        return end > start ? new[] { new InlineRun(0, _plain[start..end], InlineStyle.None) } : Array.Empty<InlineRun>();
+    }
+
+    public int OffsetAtPoint(Point p) => p.Y < _rowH.Sum() / 2 ? 0 : _plain.Length;
+
+    public void SetSelectedRange(int start, int end)
+    {
+        bool selected = end > start;
+        if (selected == _selected)
+            return;
+        _selected = selected;
+        InvalidateVisual();
+    }
+
+    private static string BuildMarkdown(List<List<string>> rows, int cols)
+    {
+        if (rows.Count == 0 || cols == 0)
+            return string.Empty;
+
+        string Row(List<string> cells) =>
+            "| " + string.Join(" | ", Enumerable.Range(0, cols).Select(c => c < cells.Count ? cells[c] : string.Empty)) + " |";
+
+        var sb = new StringBuilder();
+        sb.Append(Row(rows[0])).Append('\n');
+        sb.Append("| ").Append(string.Join(" | ", Enumerable.Repeat("---", cols))).Append(" |");
+        for (int r = 1; r < rows.Count; r++)
+            sb.Append('\n').Append(Row(rows[r]));
+        return sb.ToString();
     }
 
     private static List<List<string>> Parse(string raw)
