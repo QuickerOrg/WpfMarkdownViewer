@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.3.2" />
     <PackageReference Include="TextMateSharp" Version="2.0.4" />
+    <PackageReference Include="TextMateSharp.Grammars" Version="2.0.4" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,5 @@
 using System.Windows;
-using System.Windows.Media;
+using WpfMarkdownViewer.Highlighting;
 using WpfMarkdownViewer.Model;
 using WpfMarkdownViewer.Streaming;
 
@@ -11,16 +11,15 @@ namespace WpfMarkdownViewer.Rendering;
 /// </summary>
 internal static class BlockViewFactory
 {
+    private static readonly CodeHighlighter Highlighter = new();
+
     public static FrameworkElement Create(MdBlock block, TextRenderTheme theme) => block switch
     {
         HeadingBlock h => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(h)), theme,
             emSize: HeadingEm(h.Level, theme.EmSize), weight: FontWeights.Bold),
 
-        CodeBlock c => new ParagraphView(
-            PlainProjection(CodeText.Extract(c)), theme,
-            emSize: theme.EmSize - 1, weight: FontWeights.Normal,
-            background: theme.CodeBlockBackground, padding: new Thickness(10), monospace: true),
+        CodeBlock c => CreateCodeView(c, theme),
 
         QuoteBlock q => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(q)), theme,
@@ -33,6 +32,13 @@ internal static class BlockViewFactory
             emSize: theme.EmSize, weight: FontWeights.Normal),
     };
 
+    private static FrameworkElement CreateCodeView(CodeBlock c, TextRenderTheme theme)
+    {
+        string code = CodeText.Extract(c);
+        var lines = Highlighter.Highlight(code, c.Language);
+        return new CodeBlockView(code, c.Language, lines, theme);
+    }
+
     private static double HeadingEm(int level, double baseEm) => level switch
     {
         1 => baseEm * 1.8,
@@ -42,9 +48,4 @@ internal static class BlockViewFactory
         5 => baseEm * 1.05,
         _ => baseEm,
     };
-
-    private static InlineProjection PlainProjection(string text) =>
-        text.Length == 0
-            ? InlineProjection.Empty
-            : new InlineProjection(text, new[] { new InlineRun(0, text, InlineStyle.None) });
 }
