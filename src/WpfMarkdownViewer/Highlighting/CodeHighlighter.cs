@@ -14,9 +14,16 @@ public sealed record ColoredSpan(string Text, string? ColorHex);
 /// </summary>
 public sealed class CodeHighlighter
 {
-    private static readonly RegistryOptions Options = new(ThemeName.LightPlus);
-    private static readonly Registry Registry = new(Options);
-    private static readonly Theme Theme = Registry.GetTheme();
+    private readonly RegistryOptions _options;
+    private readonly Registry _registry;
+    private readonly Theme _theme;
+
+    public CodeHighlighter(ThemeName theme = ThemeName.LightPlus)
+    {
+        _options = new RegistryOptions(theme);
+        _registry = new Registry(_options);
+        _theme = _registry.GetTheme();
+    }
 
     public IReadOnlyList<IReadOnlyList<ColoredSpan>> Highlight(string code, string? language)
     {
@@ -59,15 +66,15 @@ public sealed class CodeHighlighter
 
     private static IReadOnlyList<ColoredSpan> Plain(string line) => new[] { new ColoredSpan(line, null) };
 
-    private static IGrammar? ResolveGrammar(string? language)
+    private IGrammar? ResolveGrammar(string? language)
     {
         if (string.IsNullOrWhiteSpace(language))
             return null;
         try
         {
             string id = Alias(language.Trim().ToLowerInvariant());
-            string scope = Options.GetScopeByLanguageId(id);
-            return string.IsNullOrEmpty(scope) ? null : Registry.LoadGrammar(scope);
+            string scope = _options.GetScopeByLanguageId(id);
+            return string.IsNullOrEmpty(scope) ? null : _registry.LoadGrammar(scope);
         }
         catch
         {
@@ -75,11 +82,11 @@ public sealed class CodeHighlighter
         }
     }
 
-    private static string? ColorFor(List<string> scopes)
+    private string? ColorFor(List<string> scopes)
     {
-        foreach (ThemeTrieElementRule rule in Theme.Match(scopes))
+        foreach (ThemeTrieElementRule rule in _theme.Match(scopes))
             if (rule.foreground > 0)
-                return Theme.GetColor(rule.foreground);
+                return _theme.GetColor(rule.foreground);
         return null;
     }
 

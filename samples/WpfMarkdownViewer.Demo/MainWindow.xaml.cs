@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using WpfMarkdownViewer.Rendering;
 
 namespace WpfMarkdownViewer.Demo;
 
@@ -28,6 +29,7 @@ public partial class MainWindow : Window
 
     private DispatcherTimer? _feeder;
     private int _pos;
+    private bool _dark;
 
     public MainWindow()
     {
@@ -36,6 +38,22 @@ public partial class MainWindow : Window
     }
 
     private void OnReplay(object sender, RoutedEventArgs e) => Replay();
+
+    private void OnToggleTheme(object sender, RoutedEventArgs e)
+    {
+        _dark = !_dark;
+        ApplyTheme(_dark);
+    }
+
+    private void ApplyTheme(bool dark)
+    {
+        var theme = dark ? TextRenderTheme.Dark : TextRenderTheme.Light;
+        Viewer.ApplyTheme(theme);
+        var bg = theme.Background;
+        Root.Background = bg;
+        Host.Background = bg;
+        ThemeButton.Content = dark ? "切换浅色" : "切换深色";
+    }
 
     private void Replay()
     {
@@ -52,7 +70,7 @@ public partial class MainWindow : Window
                 _feeder!.Stop();
                 Viewer.Complete();
                 StatusText.Text = "完成（Markdig 权威 finalize）";
-                Dispatcher.BeginInvoke(new Action(SaveSnapshot), DispatcherPriority.ApplicationIdle);
+                Dispatcher.BeginInvoke(new Action(SaveSnapshots), DispatcherPriority.ApplicationIdle);
                 return;
             }
 
@@ -63,7 +81,17 @@ public partial class MainWindow : Window
         _feeder.Start();
     }
 
-    private void SaveSnapshot()
+    private void SaveSnapshots()
+    {
+        ApplyTheme(dark: false);
+        Save("demo.png");
+        ApplyTheme(dark: true);
+        Save("demo-dark.png");
+        ApplyTheme(_dark); // restore whatever the user had
+        StatusText.Text = "完成；已保存浅色/深色快照";
+    }
+
+    private void Save(string fileName)
     {
         try
         {
@@ -78,11 +106,8 @@ public partial class MainWindow : Window
 
             string dir = @"D:\Work_Try\WpfMarkdownViewer\artifacts";
             Directory.CreateDirectory(dir);
-            string path = Path.Combine(dir, "demo.png");
-            using (var fs = File.Create(path))
-                encoder.Save(fs);
-
-            StatusText.Text = $"完成；快照已保存：{path}";
+            using var fs = File.Create(Path.Combine(dir, fileName));
+            encoder.Save(fs);
         }
         catch (Exception ex)
         {

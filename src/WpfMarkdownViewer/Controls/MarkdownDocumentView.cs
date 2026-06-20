@@ -37,8 +37,9 @@ public class MarkdownDocumentView : Panel
     private readonly StringBuilder _source = new();
     private readonly StreamingBlockParser _parser = new();
     private readonly AdaptiveThrottlePolicy _policy = new();
-    private readonly TextRenderTheme _theme = new();
     private readonly DispatcherTimer _pump;
+
+    private TextRenderTheme _theme = TextRenderTheme.Light;
 
     private long _tokensSeen;
     private long _tokensAtLastTick;
@@ -52,9 +53,19 @@ public class MarkdownDocumentView : Panel
 
     public MarkdownDocumentView()
     {
+        Background = _theme.Background;
         _pump = new DispatcherTimer(DispatcherPriority.Background) { Interval = _policy.MidInterval };
         _pump.Tick += OnPumpTick;
         _pump.Start();
+    }
+
+    /// <summary>Switch the visual theme at runtime; rebuilds all Block visuals with the new theme (problem 11).</summary>
+    public void ApplyTheme(TextRenderTheme theme)
+    {
+        _theme = theme ?? throw new ArgumentNullException(nameof(theme));
+        Background = _theme.Background;
+        _stableCount = 0;
+        Render();
     }
 
     /// <summary>The parsed Document. Exposed for tests and tooling.</summary>

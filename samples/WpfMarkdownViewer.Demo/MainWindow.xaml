@@ -2,16 +2,17 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:WpfMarkdownViewer.Controls;assembly=WpfMarkdownViewer"
-        Title="WpfMarkdownViewer 演示" Height="760" Width="900" Background="White">
-    <DockPanel>
-        <Border DockPanel.Dock="Top" Background="#FFF7F7F9" BorderBrush="#FFE3E3E8" BorderThickness="0,0,0,1">
+        Title="WpfMarkdownViewer 演示" Height="760" Width="900">
+    <DockPanel x:Name="Root" Background="White">
+        <Border x:Name="Toolbar" DockPanel.Dock="Top" Background="#FFF7F7F9" BorderBrush="#FFE3E3E8" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" Margin="10">
                 <Button x:Name="ReplayButton" Content="重新播放流式" Click="OnReplay" Padding="12,5"/>
+                <Button x:Name="ThemeButton" Content="切换深色" Click="OnToggleTheme" Padding="12,5" Margin="8,0,0,0"/>
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="14,0,0,0" Foreground="#FF6B7280"/>
             </StackPanel>
         </Border>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ctrl:MarkdownDocumentView x:Name="Viewer" Background="White"/>
-        </ScrollViewer>
+        <ctrl:MarkdownScrollHost x:Name="Host" Background="White">
+            <ctrl:MarkdownDocumentView x:Name="Viewer"/>
+        </ctrl:MarkdownScrollHost>
     </DockPanel>
 </Window>

@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Windows;
+using TextMateSharp.Grammars;
 using WpfMarkdownViewer.Highlighting;
 using WpfMarkdownViewer.Model;
 using WpfMarkdownViewer.Streaming;
@@ -11,7 +13,10 @@ namespace WpfMarkdownViewer.Rendering;
 /// </summary>
 internal static class BlockViewFactory
 {
-    private static readonly CodeHighlighter Highlighter = new();
+    private static readonly ConcurrentDictionary<ThemeName, CodeHighlighter> Highlighters = new();
+
+    private static CodeHighlighter HighlighterFor(ThemeName theme) =>
+        Highlighters.GetOrAdd(theme, t => new CodeHighlighter(t));
 
     public static FrameworkElement Create(MdBlock block, TextRenderTheme theme) => block switch
     {
@@ -33,7 +38,7 @@ internal static class BlockViewFactory
     private static FrameworkElement CreateCodeView(CodeBlock c, TextRenderTheme theme)
     {
         string code = CodeText.Extract(c);
-        var lines = Highlighter.Highlight(code, c.Language);
+        var lines = HighlighterFor(theme.TextMateTheme).Highlight(code, c.Language);
         return new CodeBlockView(code, c.Language, lines, theme);
     }
 
