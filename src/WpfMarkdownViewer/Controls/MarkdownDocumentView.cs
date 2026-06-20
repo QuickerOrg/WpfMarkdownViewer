@@ -31,16 +31,13 @@ public sealed class LinkClickedEventArgs : EventArgs
 /// </remarks>
 public class MarkdownDocumentView : Panel
 {
-    private const double Pad = 16;
-    private const double BlockSpacing = 14;
-
     private readonly ConcurrentQueue<string> _incoming = new();
     private readonly StringBuilder _source = new();
     private readonly StreamingBlockParser _parser = new();
     private readonly AdaptiveThrottlePolicy _policy = new();
     private readonly DispatcherTimer _pump;
 
-    private TextRenderTheme _theme = TextRenderTheme.Light;
+    private MarkdownStyle _theme = MarkdownStyle.Light;
 
     private long _tokensSeen;
     private long _tokensAtLastTick;
@@ -60,14 +57,28 @@ public class MarkdownDocumentView : Panel
         _pump.Start();
     }
 
-    /// <summary>Switch the visual theme at runtime; rebuilds all Block visuals with the new theme (problem 11).</summary>
-    public void ApplyTheme(TextRenderTheme theme)
+    /// <summary>The appearance configuration (fonts, sizes, margins, colors). Settable in code or XAML; runtime-swappable (M2-1).</summary>
+    public static readonly DependencyProperty MarkdownStyleProperty = DependencyProperty.Register(
+        nameof(MarkdownStyle), typeof(MarkdownStyle), typeof(MarkdownDocumentView),
+        new PropertyMetadata(MarkdownStyle.Light, OnMarkdownStyleChanged));
+
+    public MarkdownStyle MarkdownStyle
     {
-        _theme = theme ?? throw new ArgumentNullException(nameof(theme));
-        Background = _theme.Background;
-        _stableCount = 0;
-        Render();
+        get => (MarkdownStyle)GetValue(MarkdownStyleProperty);
+        set => SetValue(MarkdownStyleProperty, value);
     }
+
+    private static void OnMarkdownStyleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var view = (MarkdownDocumentView)d;
+        view._theme = (MarkdownStyle)e.NewValue;
+        view.Background = view._theme.Background;
+        view._stableCount = 0;
+        view.Render();
+    }
+
+    /// <summary>Convenience: switch the appearance at runtime (routes through the MarkdownStyle property).</summary>
+    public void ApplyTheme(MarkdownStyle theme) => MarkdownStyle = theme ?? throw new ArgumentNullException(nameof(theme));
 
     /// <summary>The parsed Document. Exposed for tests and tooling.</summary>
     internal Document Document => _parser.Document;
@@ -189,29 +200,33 @@ public class MarkdownDocumentView : Panel
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        var pad = _theme.ContentPadding;
+        double spacing = _theme.BlockSpacing;
         double availW = availableSize.Width;
-        double contentW = Math.Max(1, (double.IsInfinity(availW) ? 800 : availW) - 2 * Pad);
+        double contentW = Math.Max(1, (double.IsInfinity(availW) ? 800 : availW) - pad.Left - pad.Right);
 
         double y = 0, maxChildW = 0;
         foreach (UIElement child in InternalChildren)
         {
             child.Measure(new Size(contentW, double.PositiveInfinity));
-            y += child.DesiredSize.Height + BlockSpacing;
+            y += child.DesiredSize.Height + spacing;
             maxChildW = Math.Max(maxChildW, child.DesiredSize.Width);
         }
-        double contentH = y > 0 ? y - BlockSpacing : 0;
-        double width = double.IsInfinity(availW) ? maxChildW + 2 * Pad : availW;
-        return new Size(width, contentH + 2 * Pad);
+        double contentH = y > 0 ? y - spacing : 0;
+        double width = double.IsInfinity(availW) ? maxChildW + pad.Left + pad.Right : availW;
+        return new Size(width, contentH + pad.Top + pad.Bottom);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        double w = Math.Max(0, finalSize.Width - 2 * Pad);
-        double y = Pad;
+        var pad = _theme.ContentPadding;
+        double spacing = _theme.BlockSpacing;
+        double w = Math.Max(0, finalSize.Width - pad.Left - pad.Right);
+        double y = pad.Top;
         foreach (UIElement child in InternalChildren)
         {
-            child.Arrange(new Rect(Pad, y, w, child.DesiredSize.Height));
-            y += child.DesiredSize.Height + BlockSpacing;
+            child.Arrange(new Rect(pad.Left, y, w, child.DesiredSize.Height));
+            y += child.DesiredSize.Height + spacing;
         }
         return finalSize;
     }

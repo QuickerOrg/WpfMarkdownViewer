@@ -22,8 +22,8 @@ public class MarkdownScrollHostTests
     {
         var view = new MarkdownDocumentView();
 
-        view.ApplyTheme(TextRenderTheme.Dark);
+        view.ApplyTheme(MarkdownStyle.Dark);
 
-        Assert.Same(TextRenderTheme.Dark.Background, view.Background);
+        Assert.Same(MarkdownStyle.Dark.Background, view.Background);
     }
 }

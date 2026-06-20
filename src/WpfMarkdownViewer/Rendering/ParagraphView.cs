@@ -13,7 +13,7 @@ namespace WpfMarkdownViewer.Rendering;
 /// </summary>
 internal sealed class ParagraphView : FrameworkElement
 {
-    private readonly TextRenderTheme _theme;
+    private readonly MarkdownStyle _theme;
     private readonly double _emSize;
     private readonly FontWeight _weight;
     private readonly Brush? _background;
@@ -29,7 +29,7 @@ internal sealed class ParagraphView : FrameworkElement
 
     private InlineProjection _projection;
 
-    public ParagraphView(InlineProjection projection, TextRenderTheme theme,
+    public ParagraphView(InlineProjection projection, MarkdownStyle theme,
         double emSize, FontWeight weight, Brush? background = null, Thickness padding = default,
         bool monospace = false, double lineHeightFactor = 1.55, Action<string>? onLink = null)
     {

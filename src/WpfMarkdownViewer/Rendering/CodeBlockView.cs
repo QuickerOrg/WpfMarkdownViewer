@@ -19,13 +19,12 @@ internal sealed class CodeBlockView : FrameworkElement
     private const double HeaderHeight = 26;
 
     private static readonly Dictionary<string, Brush> BrushCache = new();
-    private static readonly Brush BorderBrush = Frozen(Color.FromRgb(0xE3, 0xE3, 0xE8));
     private static readonly Brush SubtleBrush = Frozen(Color.FromRgb(0x6B, 0x72, 0x80));
 
     private readonly string _code;
     private readonly string _languageLabel;
     private readonly IReadOnlyList<IReadOnlyList<ColoredSpan>> _lines;
-    private readonly TextRenderTheme _theme;
+    private readonly MarkdownStyle _theme;
     private readonly Typeface _mono;
     private readonly double _em;
     private readonly List<FormattedText> _formatted = new();
@@ -34,7 +33,7 @@ internal sealed class CodeBlockView : FrameworkElement
     private bool _copied;
     private DispatcherTimer? _resetTimer;
 
-    public CodeBlockView(string code, string? language, IReadOnlyList<IReadOnlyList<ColoredSpan>> lines, TextRenderTheme theme)
+    public CodeBlockView(string code, string? language, IReadOnlyList<IReadOnlyList<ColoredSpan>> lines, MarkdownStyle theme)
     {
         _code = code;
         _languageLabel = string.IsNullOrWhiteSpace(language) ? "code" : language!.Trim();
@@ -90,8 +89,8 @@ internal sealed class CodeBlockView : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         double w = RenderSize.Width, h = RenderSize.Height;
-        dc.DrawRoundedRectangle(_theme.CodeBlockBackground, new Pen(BorderBrush, 1), new Rect(0, 0, w, h), 6, 6);
-        dc.DrawLine(new Pen(BorderBrush, 1), new Point(0, HeaderHeight), new Point(w, HeaderHeight));
+        dc.DrawRoundedRectangle(_theme.CodeBlockBackground, new Pen(_theme.Border, 1), new Rect(0, 0, w, h), 6, 6);
+        dc.DrawLine(new Pen(_theme.Border, 1), new Point(0, HeaderHeight), new Point(w, HeaderHeight));
 
         double dpi = Dpi;
         var label = new FormattedText(_languageLabel, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,

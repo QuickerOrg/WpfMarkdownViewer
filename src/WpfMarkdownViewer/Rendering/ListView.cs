@@ -13,14 +13,15 @@ namespace WpfMarkdownViewer.Rendering;
 /// </summary>
 internal sealed class ListView : Panel
 {
-    private const double Indent = 24;
     private const double ItemSpacing = 2;
 
-    private readonly TextRenderTheme _theme;
+    private readonly MarkdownStyle _theme;
     private readonly List<string> _markers = new();
     private readonly List<double> _itemTops = new();
 
-    public ListView(ListBlock list, TextRenderTheme theme, Action<string>? onLink = null)
+    private double Indent => _theme.ListIndent;
+
+    public ListView(ListBlock list, MarkdownStyle theme, Action<string>? onLink = null)
     {
         _theme = theme;
         int n = 1;
@@ -29,7 +30,7 @@ internal sealed class ListView : Panel
             _markers.Add(list.Ordered ? $"{n}." : "•");
             InternalChildren.Add(new ParagraphView(
                 InlineProjector.Project(content), theme, theme.EmSize, FontWeights.Normal,
-                lineHeightFactor: 1.5, onLink: onLink));
+                lineHeightFactor: theme.ListLineHeight, onLink: onLink));
             n++;
         }
     }

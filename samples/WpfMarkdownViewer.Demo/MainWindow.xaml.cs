@@ -62,9 +62,36 @@ public partial class MainWindow : Window
         ApplyTheme(_dark);
     }
 
+    private void OnCustomStyle(object sender, RoutedEventArgs e)
+    {
+        var custom = BuildCustomStyle();
+        Viewer.MarkdownStyle = custom;
+        Root.Background = custom.Background;
+        Host.Background = custom.Background;
+        StatusText.Text = "已应用自定义样式（雅黑 17px / 大间距 / 紫色链接）";
+    }
+
+    // Demonstrates the M2-1 styling API: font / size / margins / line-height / heading scale / colors.
+    private static MarkdownStyle BuildCustomStyle()
+    {
+        var purple = new SolidColorBrush(Color.FromRgb(0x7c, 0x3a, 0xed));
+        purple.Freeze();
+        return MarkdownStyle.Light with
+        {
+            BaseTypeface = new Typeface("Microsoft YaHei"),
+            EmSize = 17,
+            ContentPadding = new Thickness(30),
+            BlockSpacing = 22,
+            ParagraphLineHeight = 1.85,
+            ListIndent = 30,
+            LinkBrush = purple,
+            HeadingScales = new[] { 2.1, 1.7, 1.4, 1.2, 1.1, 1.0 },
+        };
+    }
+
     private void ApplyTheme(bool dark)
     {
-        var theme = dark ? TextRenderTheme.Dark : TextRenderTheme.Light;
+        var theme = dark ? MarkdownStyle.Dark : MarkdownStyle.Light;
         Viewer.ApplyTheme(theme);
         var bg = theme.Background;
         Root.Background = bg;
@@ -104,8 +131,10 @@ public partial class MainWindow : Window
         Save("demo.png");
         ApplyTheme(dark: true);
         Save("demo-dark.png");
+        Viewer.MarkdownStyle = BuildCustomStyle();
+        Save("demo-custom.png");
         ApplyTheme(_dark); // restore whatever the user had
-        StatusText.Text = "完成；已保存浅色/深色快照";
+        StatusText.Text = "完成；已保存浅色/深色/自定义快照";
     }
 
     private void Save(string fileName)

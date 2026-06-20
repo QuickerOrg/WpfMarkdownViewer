@@ -12,18 +12,19 @@ namespace WpfMarkdownViewer.Rendering;
 /// </summary>
 internal sealed class TableView : Panel
 {
-    private const double CellPadX = 8;
-    private const double CellPadY = 4;
     private const double MaxColContent = 320;
     private const double MinColContent = 24;
 
-    private readonly TextRenderTheme _theme;
+    private readonly MarkdownStyle _theme;
+
+    private double CellPadX => _theme.TableCellPaddingX;
+    private double CellPadY => _theme.TableCellPaddingY;
     private readonly int _rows;
     private readonly int _cols;
     private double[] _colW = Array.Empty<double>();
     private double[] _rowH = Array.Empty<double>();
 
-    public TableView(TableBlock table, TextRenderTheme theme, Action<string>? onLink = null)
+    public TableView(TableBlock table, MarkdownStyle theme, Action<string>? onLink = null)
     {
         _theme = theme;
         var rows = Parse(table.RawText);
@@ -103,7 +104,7 @@ internal sealed class TableView : Panel
         if (_rows > 0)
             dc.DrawRectangle(_theme.CodeBlockBackground, null, new Rect(0, 0, tableW, _rowH[0]));
 
-        var pen = new Pen(_theme.QuoteBar, 1);
+        var pen = new Pen(_theme.Border, 1);
 
         double y = 0;
         for (int r = 0; r <= _rows; r++)

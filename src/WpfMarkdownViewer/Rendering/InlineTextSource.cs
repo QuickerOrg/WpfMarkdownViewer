@@ -2,62 +2,20 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
-using TextMateSharp.Grammars;
 using WpfMarkdownViewer.Model;
 
 namespace WpfMarkdownViewer.Rendering;
-
-/// <summary>
-/// Visual parameters for self-drawn text and chrome. Ships coordinated <see cref="Light"/> / <see cref="Dark"/>
-/// presets, each pairing its UI colors with a TextMate code theme (phase E theming; problem 11). Runtime-
-/// switchable via the view's ApplyTheme.
-/// </summary>
-public sealed class TextRenderTheme
-{
-    public Typeface BaseTypeface { get; init; } = new("Segoe UI");
-    public Typeface MonoTypeface { get; init; } = new("Consolas");
-    public double EmSize { get; init; } = 15;
-    public Brush Background { get; init; } = Frozen(0xFF, 0xFF, 0xFF);
-    public Brush Foreground { get; init; } = Frozen(0x1f, 0x23, 0x28);
-    public Brush LinkBrush { get; init; } = Frozen(0x0b, 0x66, 0xc2);
-    public Brush CodeForeground { get; init; } = Frozen(0xc7, 0x25, 0x4e);
-    public Brush InlineCodeBackground { get; init; } = Frozen(0xf0, 0xf0, 0xf2);
-    public Brush CodeBlockBackground { get; init; } = Frozen(0xf6, 0xf6, 0xf8);
-    public Brush QuoteBar { get; init; } = Frozen(0xd0, 0xd7, 0xde);
-    public ThemeName TextMateTheme { get; init; } = ThemeName.LightPlus;
-
-    public static TextRenderTheme Light { get; } = new();
-
-    public static TextRenderTheme Dark { get; } = new()
-    {
-        Background = Frozen(0x0d, 0x11, 0x17),
-        Foreground = Frozen(0xe6, 0xed, 0xf3),
-        LinkBrush = Frozen(0x58, 0xa6, 0xff),
-        CodeForeground = Frozen(0xff, 0x7b, 0x72),
-        InlineCodeBackground = Frozen(0x26, 0x2c, 0x36),
-        CodeBlockBackground = Frozen(0x16, 0x1b, 0x22),
-        QuoteBar = Frozen(0x3d, 0x44, 0x4d),
-        TextMateTheme = ThemeName.DarkPlus,
-    };
-
-    private static SolidColorBrush Frozen(byte r, byte g, byte b)
-    {
-        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
-        brush.Freeze();
-        return brush;
-    }
-}
 
 /// <summary>A <see cref="TextSource"/> that feeds a paragraph's flat <see cref="InlineRun"/> list to WPF's TextFormatter.</summary>
 internal sealed class InlineTextSource : TextSource
 {
     private readonly InlineProjection _projection;
-    private readonly TextRenderTheme _theme;
+    private readonly MarkdownStyle _theme;
     private readonly double _emSize;
     private readonly FontWeight _baseWeight;
     private readonly bool _monospace;
 
-    public InlineTextSource(InlineProjection projection, TextRenderTheme theme, double emSize, FontWeight baseWeight, bool monospace = false)
+    public InlineTextSource(InlineProjection projection, MarkdownStyle theme, double emSize, FontWeight baseWeight, bool monospace = false)
     {
         _projection = projection;
         _theme = theme;

@@ -8,6 +8,7 @@
             <StackPanel Orientation="Horizontal" Margin="10">
                 <Button x:Name="ReplayButton" Content="重新播放流式" Click="OnReplay" Padding="12,5"/>
                 <Button x:Name="ThemeButton" Content="切换深色" Click="OnToggleTheme" Padding="12,5" Margin="8,0,0,0"/>
+                <Button x:Name="CustomStyleButton" Content="自定义样式" Click="OnCustomStyle" Padding="12,5" Margin="8,0,0,0"/>
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="14,0,0,0" Foreground="#FF6B7280"/>
             </StackPanel>
         </Border>

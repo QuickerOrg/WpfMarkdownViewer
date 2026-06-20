@@ -18,12 +18,12 @@ internal static class BlockViewFactory
     private static CodeHighlighter HighlighterFor(ThemeName theme) =>
         Highlighters.GetOrAdd(theme, t => new CodeHighlighter(t));
 
-    public static FrameworkElement Create(MdBlock block, TextRenderTheme theme, Action<string>? onLink = null) => block switch
+    public static FrameworkElement Create(MdBlock block, MarkdownStyle theme, Action<string>? onLink = null) => block switch
     {
         HeadingBlock h => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(h)), theme,
-            emSize: HeadingEm(h.Level, theme.EmSize), weight: FontWeights.Bold,
-            lineHeightFactor: 1.3, onLink: onLink),
+            emSize: theme.HeadingEm(h.Level), weight: theme.HeadingWeight,
+            lineHeightFactor: theme.HeadingLineHeight, onLink: onLink),
 
         CodeBlock c => CreateCodeView(c, theme),
 
@@ -36,23 +36,13 @@ internal static class BlockViewFactory
         _ => new ParagraphView(
             InlineProjector.Project(InlineSource.Extract(block)), theme,
             emSize: theme.EmSize, weight: FontWeights.Normal,
-            lineHeightFactor: 1.6, onLink: onLink),
+            lineHeightFactor: theme.ParagraphLineHeight, onLink: onLink),
     };
 
-    private static FrameworkElement CreateCodeView(CodeBlock c, TextRenderTheme theme)
+    private static FrameworkElement CreateCodeView(CodeBlock c, MarkdownStyle theme)
     {
         string code = CodeText.Extract(c);
         var lines = HighlighterFor(theme.TextMateTheme).Highlight(code, c.Language);
         return new CodeBlockView(code, c.Language, lines, theme);
     }
-
-    private static double HeadingEm(int level, double baseEm) => level switch
-    {
-        1 => baseEm * 1.8,
-        2 => baseEm * 1.5,
-        3 => baseEm * 1.3,
-        4 => baseEm * 1.15,
-        5 => baseEm * 1.05,
-        _ => baseEm,
-    };
 }
