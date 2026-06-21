@@ -1,11 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\WpfMarkdownViewer\WpfMarkdownViewer.csproj" />
-    <ProjectReference Include="..\..\src\WpfMarkdownViewer.Svg\WpfMarkdownViewer.Svg.csproj" />
-    <ProjectReference Include="..\..\src\WpfMarkdownViewer.Mermaid\WpfMarkdownViewer.Mermaid.csproj" />
-    <ProjectReference Include="..\..\src\WpfMarkdownViewer.Math\WpfMarkdownViewer.Math.csproj" />
-    <ProjectReference Include="..\..\src\WpfMarkdownViewer.Highlighting\WpfMarkdownViewer.Highlighting.csproj" />
+    <!-- The demo wants every capability, so it references the meta-package and calls DefaultCapabilities.RegisterAll(). -->
+    <ProjectReference Include="..\..\src\WpfMarkdownViewer.All\WpfMarkdownViewer.All.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
