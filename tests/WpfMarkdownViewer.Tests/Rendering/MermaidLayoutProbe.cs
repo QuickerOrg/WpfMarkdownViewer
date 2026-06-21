@@ -1,6 +1,6 @@
 using Mermaider;
 using Mermaider.Models;
-using WpfMarkdownViewer.Rendering;
+using WpfMarkdownViewer.Mermaid;
 
 namespace WpfMarkdownViewer.Tests.Rendering;
 

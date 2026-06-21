@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 using WpfMarkdownViewer.Controls;
+using WpfMarkdownViewer.Mermaid;
 using WpfMarkdownViewer.Rendering;
 
 namespace WpfMarkdownViewer.Tests.Rendering;

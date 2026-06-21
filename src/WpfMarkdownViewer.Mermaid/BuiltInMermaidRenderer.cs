@@ -1,9 +1,10 @@
 using System.Text;
 using System.Windows.Media;
 using Mermaider;
+using WpfMarkdownViewer.Rendering;
 using MermaidOptions = Mermaider.Models.RenderOptions;
 
-namespace WpfMarkdownViewer.Rendering;
+namespace WpfMarkdownViewer.Mermaid;
 
 /// <summary>
 /// Built-in Mermaid renderer: Mermaider parses + lays out (via <see cref="DagreLayoutProvider"/>) + renders

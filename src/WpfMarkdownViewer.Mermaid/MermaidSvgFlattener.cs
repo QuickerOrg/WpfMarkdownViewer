@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace WpfMarkdownViewer.Rendering;
+namespace WpfMarkdownViewer.Mermaid;
 
 /// <summary>
 /// Flattens the CSS custom properties Mermaider emits (<c>var(--…)</c>, <c>color-mix(…)</c>, <c>rem</c> font

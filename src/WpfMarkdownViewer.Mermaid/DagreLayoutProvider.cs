@@ -3,7 +3,7 @@ using Mermaider.Layout;
 using Mermaider.Models;
 using Mostlylucid.Dagre;
 
-namespace WpfMarkdownViewer.Rendering;
+namespace WpfMarkdownViewer.Mermaid;
 
 /// <summary>
 /// A Mermaider layout provider that re-lays-out flowcharts with the dagre algorithm (Mostlylucid.Dagre) for
@@ -12,7 +12,7 @@ namespace WpfMarkdownViewer.Rendering;
 /// falls back to the default layout for anything dagre can't handle (subgraphs, errors). Class/ER diagrams
 /// delegate unchanged.
 /// </summary>
-internal sealed class DagreLayoutProvider : IGraphLayoutProvider
+public sealed class DagreLayoutProvider : IGraphLayoutProvider
 {
     // Built once; null if Mermaider's internal default provider can't be reflected (then we leave Mermaider's own layout in place).
     public static readonly DagreLayoutProvider? Instance = TryCreate();

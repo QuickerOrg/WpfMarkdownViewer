@@ -9,8 +9,6 @@
 
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.3.2" />
-    <PackageReference Include="Mermaider" Version="*" />
-    <PackageReference Include="Mostlylucid.Dagre" Version="*" />
     <PackageReference Include="TextMateSharp" Version="2.0.4" />
     <PackageReference Include="TextMateSharp.Grammars" Version="2.0.4" />
     <PackageReference Include="WpfMath" Version="2.1.0" />
@@ -18,6 +16,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="WpfMarkdownViewer.Tests" />
+    <InternalsVisibleTo Include="WpfMarkdownViewer.Mermaid" />
   </ItemGroup>
 
 </Project>
