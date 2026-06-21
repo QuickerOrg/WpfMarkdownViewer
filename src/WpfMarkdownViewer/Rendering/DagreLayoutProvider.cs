@@ -62,9 +62,13 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
     {
         var dg = new DagreInputGraph { VerticalLayout = graph.Direction is Direction.TD or Direction.TB or Direction.BT };
 
+        // dagre's high-level API hardcodes node/rank separation; pad the boxes we hand it to open up the gaps
+        // (more room for edge labels and arrowheads). We render at the real size, centered in the padded slot.
+        const float padW = 30f, padH = 42f;
+
         var dn = new Dictionary<string, DagreInputNode>();
         foreach (var n in basePg.Nodes)
-            dn[n.Id] = dg.AddNode(n.Id, (float)n.Width, (float)n.Height);
+            dn[n.Id] = dg.AddNode(n.Id, (float)n.Width + padW, (float)n.Height + padH);
 
         // dagre 2.0.1 throws on cycles, so reverse back-edges ourselves (acyclify) and undo on output.
         var back = DetectBackEdges(basePg.Edges);
@@ -82,7 +86,7 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
         dg.Layout(null);
 
         var nodes = basePg.Nodes
-            .Select(n => n with { X = dn[n.Id].X, Y = dn[n.Id].Y })
+            .Select(n => n with { X = dn[n.Id].X + padW / 2, Y = dn[n.Id].Y + padH / 2 }) // center the real node in its padded slot
             .ToList();
         var geo = nodes.ToDictionary(n => n.Id, n => (Cx: n.X + n.Width / 2, Cy: n.Y + n.Height / 2, Hw: n.Width / 2, Hh: n.Height / 2, n.Shape));
 
@@ -111,10 +115,16 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
         }
 
         const double margin = 8;
-        double width = nodes.Count == 0 ? basePg.Width : nodes.Max(n => n.X + n.Width) + margin;
-        double height = nodes.Count == 0 ? basePg.Height : nodes.Max(n => n.Y + n.Height) + margin;
+        double maxX = nodes.Max(n => n.X + n.Width);
+        double maxY = nodes.Max(n => n.Y + n.Height);
+        foreach (var pe in edges)
+            foreach (var p in pe.Points)
+            {
+                if (p.X > maxX) maxX = p.X;
+                if (p.Y > maxY) maxY = p.Y;
+            }
 
-        return basePg with { Width = width, Height = height, Nodes = nodes, Edges = edges };
+        return basePg with { Width = maxX + margin, Height = maxY + margin, Nodes = nodes, Edges = edges };
     }
 
     /// <summary>Point on a node's shape border along the ray from its center toward <paramref name="toward"/>.</summary>
