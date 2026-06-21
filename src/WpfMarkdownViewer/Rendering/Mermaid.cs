@@ -44,6 +44,7 @@ internal sealed class BuiltInMermaidRenderer : IMermaidRenderer
             {
                 var options = new MermaidOptions
                 {
+                    LayoutProvider = DagreLayoutProvider.Instance, // dagre layout for better placement/routing
                     Bg = Hex(theme.Background),
                     Fg = Hex(theme.Foreground),
                     Surface = Hex(theme.CodeBlockBackground),
