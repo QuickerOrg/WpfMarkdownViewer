@@ -84,6 +84,7 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
         var nodes = basePg.Nodes
             .Select(n => n with { X = dn[n.Id].X, Y = dn[n.Id].Y })
             .ToList();
+        var geo = nodes.ToDictionary(n => n.Id, n => (Cx: n.X + n.Width / 2, Cy: n.Y + n.Height / 2, Hw: n.Width / 2, Hh: n.Height / 2, n.Shape));
 
         var edges = new List<PositionedEdge>(basePg.Edges.Count);
         for (int i = 0; i < basePg.Edges.Count; i++)
@@ -97,6 +98,14 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
             var pts = de.Points.Select(p => new Point(p.X, p.Y)).ToList();
             if (back.Contains(i))
                 pts.Reverse();
+
+            // dagre anchors endpoints on the rectangular bounding box; pull them onto the actual node shape
+            // (diamond/circle) so the line/arrow emanates from the node border, not from empty space beside it.
+            if (geo.TryGetValue(e.Source, out var s))
+                pts[0] = ClipFromCenter(s.Cx, s.Cy, s.Hw, s.Hh, s.Shape, pts.Count > 1 ? pts[1] : new Point(s.Cx, s.Cy));
+            if (geo.TryGetValue(e.Target, out var t))
+                pts[^1] = ClipFromCenter(t.Cx, t.Cy, t.Hw, t.Hh, t.Shape, pts.Count > 1 ? pts[^2] : new Point(t.Cx, t.Cy));
+
             Point? label = !string.IsNullOrEmpty(e.Label) ? MidpointByLength(pts) : null;
             edges.Add(e with { Points = pts, LabelPosition = label });
         }
@@ -106,6 +115,22 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
         double height = nodes.Count == 0 ? basePg.Height : nodes.Max(n => n.Y + n.Height) + margin;
 
         return basePg with { Width = width, Height = height, Nodes = nodes, Edges = edges };
+    }
+
+    /// <summary>Point on a node's shape border along the ray from its center toward <paramref name="toward"/>.</summary>
+    private static Point ClipFromCenter(double cx, double cy, double hw, double hh, NodeShape shape, Point toward)
+    {
+        double dx = toward.X - cx, dy = toward.Y - cy;
+        if (hw <= 0 || hh <= 0 || (dx == 0 && dy == 0))
+            return new Point(cx, cy);
+
+        double t = shape switch
+        {
+            NodeShape.Diamond => 1.0 / (Math.Abs(dx) / hw + Math.Abs(dy) / hh),
+            NodeShape.Circle or NodeShape.DoubleCircle => 1.0 / Math.Sqrt(dx * dx / (hw * hw) + dy * dy / (hh * hh)),
+            _ => 1.0 / Math.Max(Math.Abs(dx) / hw, Math.Abs(dy) / hh), // rectangle-ish
+        };
+        return new Point(cx + dx * t, cy + dy * t);
     }
 
     /// <summary>The point halfway along the polyline by arc length — the natural spot for an edge label (vs a corner control point).</summary>
