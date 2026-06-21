@@ -43,6 +43,7 @@
 - **拖选自动滚动**：拖到视口边缘自动滚动并延展选区（`SelectionController` + `IScrollHostAware`）。
 - **SVG 图片**：SharpVectors 矢量渲染；图片加载统一为 `ImageLoader`（data URI、pack/资源、http 条件请求 ETag）。
 - **Mermaid 图表**：纯 .NET（Mermaider）→ SVG → SharpVectors，全程本地无浏览器；可插拔 `IMermaidRenderer` 扩展点（ADR-0010），内置实现。`MermaidSvgFlattener` 把 Mermaider 的 CSS 变量/`color-mix` 扁平化成 SharpVectors 可解析的内联值。`​```mermaid` 块识别后渲染为矢量图，失败回退为代码块，整块原子选区可复制回 ` ```mermaid` 源码。
+  - **布局升级**：`DagreLayoutProvider`（插入 Mermaider 的 `IGraphLayoutProvider`）用 dagre（Mostlylucid.Dagre）分层算法重排节点+边，复用 Mermaider 节点测量；自行断环（dagre 2.0.1 含环 bug）；边端点裁剪到节点实际形状（菱形/圆/矩形）；边标签按弧长中点；给 dagre 节点盒加内边距以加大间距。失败多重回退到 Mermaider 自带布局。
 
 ## 不在 M3
 

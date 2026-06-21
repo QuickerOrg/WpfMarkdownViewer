@@ -97,7 +97,7 @@ Inline markup is **converged** to Markdig: the streaming preview of any finalize
 
 ## Mermaid (pluggable)
 
-`​```mermaid` blocks render natively via a pure-.NET engine ([Mermaider](https://www.nuget.org/packages/Mermaider)) → SVG → vector — no browser. Swap the engine by assigning `Mermaid.Renderer`:
+`​```mermaid` blocks render natively via a pure-.NET engine ([Mermaider](https://www.nuget.org/packages/Mermaider)) → SVG → vector — no browser. Flowchart layout is upgraded with the [Mostlylucid.Dagre](https://www.nuget.org/packages/Mostlylucid.Dagre) layered (dagre) algorithm for placement/routing closer to mermaid.js (cycles handled, edge endpoints clipped to node shapes). Swap the engine by assigning `Mermaid.Renderer`:
 
 ```csharp
 // Disable (mermaid falls back to a code block):
@@ -156,6 +156,7 @@ Run the demo (`samples/WpfMarkdownViewer.Demo`) to see streaming playback, theme
 | WpfMath | LaTeX math rendering | MIT |
 | SharpVectors.Reloaded | SVG → WPF vector | BSD-3 |
 | Mermaider | pure-.NET Mermaid → SVG | MIT |
+| Mostlylucid.Dagre | dagre (layered) graph layout for flowcharts | MIT |
 
 ## Status & roadmap
 
