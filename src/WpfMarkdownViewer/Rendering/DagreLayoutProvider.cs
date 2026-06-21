@@ -97,7 +97,7 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
             var pts = de.Points.Select(p => new Point(p.X, p.Y)).ToList();
             if (back.Contains(i))
                 pts.Reverse();
-            Point? label = !string.IsNullOrEmpty(e.Label) ? pts[pts.Count / 2] : null;
+            Point? label = !string.IsNullOrEmpty(e.Label) ? MidpointByLength(pts) : null;
             edges.Add(e with { Points = pts, LabelPosition = label });
         }
 
@@ -106,6 +106,34 @@ internal sealed class DagreLayoutProvider : IGraphLayoutProvider
         double height = nodes.Count == 0 ? basePg.Height : nodes.Max(n => n.Y + n.Height) + margin;
 
         return basePg with { Width = width, Height = height, Nodes = nodes, Edges = edges };
+    }
+
+    /// <summary>The point halfway along the polyline by arc length — the natural spot for an edge label (vs a corner control point).</summary>
+    private static Point MidpointByLength(List<Point> pts)
+    {
+        if (pts.Count == 1)
+            return pts[0];
+
+        double total = 0;
+        for (int i = 1; i < pts.Count; i++)
+            total += Dist(pts[i - 1], pts[i]);
+
+        double half = total / 2;
+        double acc = 0;
+        for (int i = 1; i < pts.Count; i++)
+        {
+            double seg = Dist(pts[i - 1], pts[i]);
+            if (acc + seg >= half && seg > 0)
+            {
+                double t = (half - acc) / seg;
+                return new Point(pts[i - 1].X + (pts[i].X - pts[i - 1].X) * t,
+                                 pts[i - 1].Y + (pts[i].Y - pts[i - 1].Y) * t);
+            }
+            acc += seg;
+        }
+        return pts[pts.Count / 2];
+
+        static double Dist(Point a, Point b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
     }
 
     /// <summary>DFS edge classification: an edge to a node currently on the recursion stack is a back-edge (part of a cycle).</summary>
