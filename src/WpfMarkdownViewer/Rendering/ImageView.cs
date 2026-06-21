@@ -64,8 +64,9 @@ internal sealed class ImageView : FrameworkElement
         }
 
         // Sniff the content rather than trusting the extension, so SVG served without a .svg URL still works.
+        // SVG goes through the optional SVG capability; with no plugin it falls back to the alt-text placeholder.
         ImageSource? image = SvgImage.LooksLikeSvg(bytes)
-            ? await Task.Run(() => SvgImage.Parse(bytes))
+            ? await Task.Run(() => Capabilities.Svg?.Render(bytes))
             : DecodeBitmap(bytes);
 
         if (image is null)

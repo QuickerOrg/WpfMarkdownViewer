@@ -26,9 +26,9 @@ public class MarkdownStyleTests
     }
 
     [Fact]
-    public void LightAndDark_PairDifferentTextMateThemes()
+    public void LightAndDark_PairDifferentCodeThemes()
     {
-        Assert.NotEqual(MarkdownStyle.Light.TextMateTheme, MarkdownStyle.Dark.TextMateTheme);
+        Assert.NotEqual(MarkdownStyle.Light.CodeTheme, MarkdownStyle.Dark.CodeTheme);
     }
 
     [WpfFact]

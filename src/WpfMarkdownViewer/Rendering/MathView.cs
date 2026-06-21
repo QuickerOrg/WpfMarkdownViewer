@@ -1,57 +1,36 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
-using WpfMath;
-using WpfMath.Parsers;
-using WpfMath.Rendering;
 using WpfMarkdownViewer.Model;
 using WpfMarkdownViewer.Streaming;
 
 namespace WpfMarkdownViewer.Rendering;
 
 /// <summary>
-/// A self-drawn block math formula (M2-5) rendered natively to vector geometry via WpfMath (no browser),
-/// filled with the style foreground so it follows the theme. On parse failure, falls back to the raw
-/// LaTeX in monospace. Inline math (<c>$…$</c>) is handled separately by <see cref="MathInlineObject"/>.
+/// A self-drawn block math formula (M2-5). The math plugin (<see cref="Capabilities.Math"/>) renders the
+/// LaTeX to colourless vector geometry; this view fills it with the theme foreground so it follows the
+/// theme. With no math plugin (or on failure) it falls back to the raw LaTeX in monospace. Inline math
+/// (<c>$…$</c>) is handled separately by <see cref="MathInlineObject"/>.
 /// </summary>
 internal sealed class MathView : FrameworkElement
 {
-    private static readonly XamlMath.TexFormulaParser Parser = WpfTeXFormulaParser.Instance;
-
     private readonly string _latex;
     private readonly MarkdownStyle _theme;
     private readonly double _scale;
 
     private Geometry? _geometry;
     private Rect _bounds;
-    private string? _error;
 
     public MathView(MathBlock block, MarkdownStyle theme)
     {
         _latex = MathText.Extract(block.RawText);
         _theme = theme;
         _scale = theme.EmSize * 1.4;
-        Build();
-    }
 
-    private void Build()
-    {
-        try
+        if (Capabilities.Math is { } math && math.TryRender(_latex, _scale, display: true, out var geometry, out var bounds))
         {
-            var formula = Parser.Parse(_latex);
-            var environment = WpfTeXEnvironment.Create(
-                XamlMath.TexStyle.Display, _scale, "Arial", _theme.Foreground, _theme.Background);
-            var geometry = formula.RenderToGeometry(environment, _scale, 0, 0);
-            geometry.Freeze();
-            _bounds = geometry.Bounds;
-            if (_bounds.IsEmpty || _bounds.Width <= 0 || _bounds.Height <= 0)
-                _error = "empty formula";
-            else
-                _geometry = geometry;
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
+            _geometry = geometry;
+            _bounds = bounds;
         }
     }
 

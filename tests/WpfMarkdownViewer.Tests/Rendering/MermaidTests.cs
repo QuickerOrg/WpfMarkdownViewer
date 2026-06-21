@@ -54,8 +54,8 @@ public class MermaidTests
     [WpfFact]
     public void MermaidBlock_FallsBackToCodeBlock_WhenRendererDisabled()
     {
-        var previous = Mermaid.Renderer;
-        Mermaid.Renderer = null;
+        var previous = Capabilities.Mermaid;
+        Capabilities.Mermaid = null;
         try
         {
             var view = LaidOut("```mermaid\nflowchart TD\n  A --> B\n```");
@@ -65,23 +65,23 @@ public class MermaidTests
         }
         finally
         {
-            Mermaid.Renderer = previous;
+            Capabilities.Mermaid = previous;
         }
     }
 
     [WpfFact]
     public void CustomRenderer_CanBeInstalled()
     {
-        var previous = Mermaid.Renderer;
+        var previous = Capabilities.Mermaid;
         var custom = new FakeRenderer();
-        Mermaid.Renderer = custom;
+        Capabilities.Mermaid = custom;
         try
         {
-            Assert.Same(custom, Mermaid.Renderer);
+            Assert.Same(custom, Capabilities.Mermaid);
         }
         finally
         {
-            Mermaid.Renderer = previous;
+            Capabilities.Mermaid = previous;
         }
     }
 

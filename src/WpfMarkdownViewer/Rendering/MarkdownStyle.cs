@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Media;
-using TextMateSharp.Grammars;
 
 namespace WpfMarkdownViewer.Rendering;
 
@@ -54,7 +53,8 @@ public sealed record MarkdownStyle
     /// <summary>Muted foreground for secondary affordances (message action bar, labels).</summary>
     public Brush SubtleForeground { get; init; } = Frozen(0x6b, 0x72, 0x80);
 
-    public ThemeName TextMateTheme { get; init; } = ThemeName.LightPlus;
+    /// <summary>Name of the paired code-highlighting theme (e.g. "LightPlus"/"DarkPlus"); resolved by the highlighting plugin. A string keeps the core free of TextMate dependencies.</summary>
+    public string CodeTheme { get; init; } = "LightPlus";
 
     /// <summary>Effective em size for a heading of the given level (1–6).</summary>
     public double HeadingEm(int level) => EmSize * HeadingScales[Math.Clamp(level - 1, 0, HeadingScales.Count - 1)];
@@ -74,7 +74,7 @@ public sealed record MarkdownStyle
         QuoteBar = Frozen(0x3d, 0x44, 0x4d),
         UserBubbleBackground = Frozen(0x21, 0x26, 0x2d),
         SubtleForeground = Frozen(0x8b, 0x94, 0x9e),
-        TextMateTheme = ThemeName.DarkPlus,
+        CodeTheme = "DarkPlus",
     };
 
     private static SolidColorBrush Frozen(byte r, byte g, byte b)

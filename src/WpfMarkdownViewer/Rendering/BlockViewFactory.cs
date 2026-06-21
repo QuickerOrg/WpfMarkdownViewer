@@ -1,6 +1,4 @@
-using System.Collections.Concurrent;
 using System.Windows;
-using TextMateSharp.Grammars;
 using WpfMarkdownViewer.Highlighting;
 using WpfMarkdownViewer.Model;
 using WpfMarkdownViewer.Streaming;
@@ -13,11 +11,6 @@ namespace WpfMarkdownViewer.Rendering;
 /// </summary>
 internal static class BlockViewFactory
 {
-    private static readonly ConcurrentDictionary<ThemeName, CodeHighlighter> Highlighters = new();
-
-    private static CodeHighlighter HighlighterFor(ThemeName theme) =>
-        Highlighters.GetOrAdd(theme, t => new CodeHighlighter(t));
-
     public static FrameworkElement Create(MdBlock block, MarkdownStyle theme, Action<string>? onLink = null,
         string? imageBasePath = null, IReadOnlyDictionary<string, string>? linkDefs = null) => block switch
     {
@@ -50,10 +43,12 @@ internal static class BlockViewFactory
     private static FrameworkElement CreateCodeView(CodeBlock c, MarkdownStyle theme)
     {
         string code = CodeText.Extract(c);
-        if (string.Equals(c.Language, "mermaid", StringComparison.OrdinalIgnoreCase) && Mermaid.Renderer is not null)
+        if (string.Equals(c.Language, "mermaid", StringComparison.OrdinalIgnoreCase) && Capabilities.Mermaid is not null)
             return new MermaidView(code, theme);
 
-        var lines = HighlighterFor(theme.TextMateTheme).Highlight(code, c.Language);
+        // Highlighting is an optional capability; with no plugin, render each line as one uncolored span.
+        var lines = Capabilities.Highlighting?.Highlight(code, c.Language, theme.CodeTheme)
+            ?? code.Replace("\r\n", "\n").Split('\n').Select(l => (IReadOnlyList<ColoredSpan>)new[] { new ColoredSpan(l, null) }).ToList();
         return new CodeBlockView(code, c.Language, lines, theme);
     }
 }

@@ -4,9 +4,6 @@ using TextMateSharp.Themes;
 
 namespace WpfMarkdownViewer.Highlighting;
 
-/// <summary>A run of code with a resolved foreground color (hex, or null for the default).</summary>
-public sealed record ColoredSpan(string Text, string? ColorHex);
-
 /// <summary>
 /// Per-line syntax highlighting via TextMate grammars (ADR-0003, TextMateSharp). Stateful across lines
 /// (carries the rule stack) so multi-line constructs highlight correctly and incomplete code is tolerated.

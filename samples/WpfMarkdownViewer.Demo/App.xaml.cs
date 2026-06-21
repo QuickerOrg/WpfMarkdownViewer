@@ -1,6 +1,8 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using WpfMarkdownViewer.Highlighting;
+using WpfMarkdownViewer.Rendering;
 
 namespace WpfMarkdownViewer.Demo;
 
@@ -8,6 +10,12 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Register the optional rendering capabilities (a real host picks only what it needs).
+        Capabilities.Highlighting = new TextMateHighlighter();
+        Capabilities.Math = new WpfMathRenderer();
+        Capabilities.Svg = new SvgRenderer();
+        Capabilities.Mermaid = new BuiltInMermaidRenderer();
+
         DispatcherUnhandledException += OnDispatcherException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) => Log((args.ExceptionObject as Exception)?.ToString() ?? "unknown");
         base.OnStartup(e);

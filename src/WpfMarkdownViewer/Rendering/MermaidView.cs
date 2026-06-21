@@ -6,7 +6,7 @@ using WpfMarkdownViewer.Model;
 namespace WpfMarkdownViewer.Rendering;
 
 /// <summary>
-/// A <c>```mermaid</c> diagram (M3, parity with LiveMarkdown). The pluggable <see cref="Mermaid.Renderer"/>
+/// A <c>```mermaid</c> diagram (M3, parity with LiveMarkdown). The pluggable <see cref="Capabilities.Mermaid"/>
 /// renders the source to a scalable vector image off the UI thread; while it runs a placeholder shows, and
 /// on failure (invalid/unsupported diagram) it degrades to the raw source in a monospace box. The whole
 /// block is one atomic selectable that copies back as a fenced <c>```mermaid</c> block.
@@ -32,14 +32,14 @@ internal sealed class MermaidView : FrameworkElement, ISelectableText
 
     private async void BeginRender()
     {
-        if (Mermaid.Renderer is null)
+        if (Capabilities.Mermaid is null)
         {
             _failed = true;
             return;
         }
         try
         {
-            var image = await Mermaid.Renderer.RenderAsync(new MermaidRequest(_source, _theme));
+            var image = await Capabilities.Mermaid.RenderAsync(new MermaidRequest(_source, _theme));
             if (image is null)
                 OnFailed();
             else
