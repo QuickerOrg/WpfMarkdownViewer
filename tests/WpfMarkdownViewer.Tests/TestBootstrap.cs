@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using WpfMarkdownViewer.Highlighting;
+using WpfMarkdownViewer.MathRendering;
 using WpfMarkdownViewer.Mermaid;
 using WpfMarkdownViewer.Rendering;
 using WpfMarkdownViewer.Svg;

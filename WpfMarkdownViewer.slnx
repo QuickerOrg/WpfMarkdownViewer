@@ -6,6 +6,7 @@
     <Project Path="src/WpfMarkdownViewer/WpfMarkdownViewer.csproj" />
     <Project Path="src/WpfMarkdownViewer.Svg/WpfMarkdownViewer.Svg.csproj" />
     <Project Path="src/WpfMarkdownViewer.Mermaid/WpfMarkdownViewer.Mermaid.csproj" />
+    <Project Path="src/WpfMarkdownViewer.Math/WpfMarkdownViewer.Math.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/WpfMarkdownViewer.Tests/WpfMarkdownViewer.Tests.csproj" />

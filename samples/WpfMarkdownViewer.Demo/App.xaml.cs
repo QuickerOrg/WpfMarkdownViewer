@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using WpfMarkdownViewer.Highlighting;
+using WpfMarkdownViewer.MathRendering;
 using WpfMarkdownViewer.Mermaid;
 using WpfMarkdownViewer.Rendering;
 using WpfMarkdownViewer.Svg;
