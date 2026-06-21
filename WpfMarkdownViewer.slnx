@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/WpfMarkdownViewer/WpfMarkdownViewer.csproj" />
+    <Project Path="src/WpfMarkdownViewer.Svg/WpfMarkdownViewer.Svg.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/WpfMarkdownViewer.Tests/WpfMarkdownViewer.Tests.csproj" />

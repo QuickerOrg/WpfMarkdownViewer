@@ -1,15 +1,11 @@
-using System.IO;
 using System.Text;
-using System.Windows.Media;
-using SharpVectors.Converters;
-using SharpVectors.Renderers.Wpf;
 
 namespace WpfMarkdownViewer.Rendering;
 
 /// <summary>
-/// Parses SVG bytes into a scalable WPF vector drawing via SharpVectors (M3, parity with LiveMarkdown).
-/// Unlike bitmaps these stay crisp at any size and follow no theme — the SVG's own colors are used.
-/// Bytes are fetched by <see cref="ImageLoader"/>; parsing is done off the UI thread and the result frozen.
+/// SVG detection helpers that stay in the dependency-free core. Actual SVG decoding is an optional
+/// capability (<see cref="ISvgRenderer"/>); with no plugin installed, sniffed SVG bytes fall back to
+/// the alt-text placeholder. These checks only classify bytes/URIs and pull in no third-party code.
 /// </summary>
 internal static class SvgImage
 {
@@ -27,26 +23,5 @@ internal static class SvgImage
             return false;
         int xml = head.IndexOf("<?xml", StringComparison.OrdinalIgnoreCase);
         return xml < 0 || xml <= svg; // only the XML prolog (if any) may precede <svg
-    }
-
-    public static DrawingImage? Parse(byte[] bytes)
-    {
-        try
-        {
-            var settings = new WpfDrawingSettings { IncludeRuntime = false, TextAsGeometry = true };
-            using var reader = new FileSvgReader(settings, isEmbedded: false);
-            using var stream = new MemoryStream(bytes);
-            DrawingGroup? drawing = reader.Read(stream);
-            if (drawing is null || drawing.Bounds.Width <= 0 || drawing.Bounds.Height <= 0)
-                return null;
-
-            var image = new DrawingImage(drawing);
-            image.Freeze();
-            return image;
-        }
-        catch
-        {
-            return null;
-        }
     }
 }

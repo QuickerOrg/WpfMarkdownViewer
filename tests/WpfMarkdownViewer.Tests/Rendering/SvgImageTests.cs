@@ -1,5 +1,6 @@
 using System.Text;
 using WpfMarkdownViewer.Rendering;
+using WpfMarkdownViewer.Svg;
 
 namespace WpfMarkdownViewer.Tests.Rendering;
 
@@ -21,7 +22,7 @@ public class SvgImageTests
         const string svg = "<svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'>" +
                            "<rect width='40' height='20' fill='red'/></svg>";
 
-        var image = SvgImage.Parse(Encoding.UTF8.GetBytes(svg));
+        var image = new SvgRenderer().Render(Encoding.UTF8.GetBytes(svg));
 
         Assert.NotNull(image);
         Assert.True(image!.Width > 0 && image.Height > 0);
@@ -31,7 +32,7 @@ public class SvgImageTests
     [WpfFact]
     public void Parse_Garbage_ReturnsNull()
     {
-        Assert.Null(SvgImage.Parse(Encoding.UTF8.GetBytes("this is not svg")));
+        Assert.Null(new SvgRenderer().Render(Encoding.UTF8.GetBytes("this is not svg")));
     }
 
     [Theory]

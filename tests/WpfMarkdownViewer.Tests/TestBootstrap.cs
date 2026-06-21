@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using WpfMarkdownViewer.Highlighting;
 using WpfMarkdownViewer.Rendering;
+using WpfMarkdownViewer.Svg;
 
 namespace WpfMarkdownViewer.Tests;
 

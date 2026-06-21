@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using WpfMarkdownViewer.Highlighting;
 using WpfMarkdownViewer.Rendering;
+using WpfMarkdownViewer.Svg;
 
 namespace WpfMarkdownViewer.Demo;
 
