@@ -6,6 +6,8 @@
 
 一个原生 **WPF** Markdown 组件，面向 AI 生成内容，提供接近 ChatGPT 的视觉效果和流畅的增量流式渲染——不使用浏览器、WebView2 或 JavaScript。
 
+![WpfMarkdownViewer 渲染效果预览](https://raw.githubusercontent.com/QuickerOrg/WpfMarkdownViewer/main/docs/images/wpfmarkdownviewer-preview.png)
+
 它被设计为 AI 功能（多模型提供商、插件输出、动作说明）的长期共享基础设施，而不是一次性查看器。渲染器使用 `TextFormatter` + `DrawingContext` 自绘；令牌流入时只重新渲染末尾正在生成的块，块完成后则收敛到 `Markdig` 的权威解析结果。
 
 ```text

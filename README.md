@@ -6,6 +6,8 @@
 
 A native **WPF** component for rendering AI-generated Markdown with **ChatGPT-quality visuals** and **smooth incremental streaming** — no browser, no WebView2, no JavaScript.
 
+![WpfMarkdownViewer rendering preview](https://raw.githubusercontent.com/QuickerOrg/WpfMarkdownViewer/main/docs/images/wpfmarkdownviewer-preview.png)
+
 Built as long-term shared infrastructure for AI features (multiple model providers, plugin output, action docs), not a one-off viewer. The renderer is **self-drawn** (`TextFormatter` + `DrawingContext`), only re-renders the single trailing block as tokens arrive, and **converges** its streaming preview to a `Markdig` parse once a block is finalized.
 
 ```
