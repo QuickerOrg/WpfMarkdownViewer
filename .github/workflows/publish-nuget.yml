@@ -7,10 +7,12 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
     runs-on: windows-latest
+    environment: nuget
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -59,13 +61,19 @@ jobs:
             artifacts/packages/*.snupkg
           if-no-files-found: error
 
+      - name: Log in to NuGet.org with OIDC
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish to NuGet.org
         shell: pwsh
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
-            throw 'Repository secret NUGET_API_KEY is not configured.'
+            throw 'NuGet Trusted Publishing did not return a temporary API key.'
           }
           Get-ChildItem artifacts/packages -Filter *.nupkg |
             Where-Object Name -NotLike '*.snupkg' |

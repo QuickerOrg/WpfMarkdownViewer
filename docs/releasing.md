@@ -4,15 +4,27 @@
 
 ## 首次配置
 
-1. 在 NuGet.org 创建或确认 `WpfMarkdownViewer`、`WpfMarkdownViewer.Highlighting`、
+仓库使用 NuGet.org Trusted Publishing，通过 GitHub Actions OIDC 换取短期 API Key，不保存长期
+NuGet API Key。
+
+1. 在 GitHub 仓库创建 `nuget` Environment，并将部署标签限制为 `v*.*.*`。
+2. 在该 Environment 中创建 Secret `NUGET_USER`，值为 NuGet.org profile name（不是邮箱）。
+3. 在 NuGet.org 的 **Trusted Publishing** 中创建 GitHub Policy：
+   - Repository owner：`QuickerOrg`
+   - Repository：`WpfMarkdownViewer`
+   - Workflow file：`publish-nuget.yml`
+   - Environment：`nuget`
+4. 在 NuGet.org 创建或确认 `WpfMarkdownViewer`、`WpfMarkdownViewer.Highlighting`、
    `WpfMarkdownViewer.Math`、`WpfMarkdownViewer.Svg`、`WpfMarkdownViewer.Mermaid` 和
    `WpfMarkdownViewer.All` 的包所有权。
-2. 创建仅允许推送上述包的 NuGet API Key。
-3. 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 中创建 repository secret：
-   `NUGET_API_KEY`。
-4. 建议在 NuGet.org 为包 ID 设置前缀保留，并至少配置两个组织维护者。
+5. 建议为包 ID 设置前缀保留，并至少配置两个组织维护者。
 
-API Key 不应写入项目文件、workflow 参数、日志或 Git 历史。请按 NuGet.org 的有效期策略定期轮换。
+workflow 需要 `id-token: write` 权限，并使用 `NuGet/login@v1` 在推送前取得约一小时有效的临时
+API Key。不要在仓库中创建或保存长期 `NUGET_API_KEY`。
+
+私有 GitHub 仓库首次建立 Policy 时，NuGet.org 可能提供 7 天临时激活窗口。应在窗口内完成一次
+成功发布，让 NuGet.org 根据 OIDC 中的仓库和所有者 ID 永久绑定 Policy；窗口过期后可在 NuGet.org
+重新启动。
 
 ## 发布版本
 
@@ -24,7 +36,7 @@ git push origin v0.1.0
 ```
 
 预发布标签也受支持，例如 `v0.2.0-preview.1`。workflow 会依次执行还原、Release 构建、测试、
-打包、上传构建产物和推送 NuGet.org。标签中的 `v` 不会进入包版本。
+打包、上传构建产物、通过 OIDC 登录和推送 NuGet.org。标签中的 `v` 不会进入包版本。
 
 发布前应确认：
 
