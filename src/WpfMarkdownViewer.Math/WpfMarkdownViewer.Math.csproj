@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Description>LaTeX math rendering plugin for WpfMarkdownViewer, powered by WpfMath.</Description>
+    <PackageTags>$(PackageTags);latex;math</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

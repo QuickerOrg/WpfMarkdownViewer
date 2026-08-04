@@ -23,7 +23,8 @@ AI token stream → AppendDelta(...) → adaptive throttle → streaming block p
 
 - .NET 10 (Windows), WPF (`net10.0-windows`).
 
-> Not yet published to NuGet. Reference the `WpfMarkdownViewer` project directly, or build a package from source (see [Building](#building--testing)).
+> NuGet publishing is prepared but the first public version has not been released yet. Until then,
+> reference the `WpfMarkdownViewer` project directly or build the packages from source.
 
 ## Capabilities (plugins)
 
@@ -153,7 +154,7 @@ Capabilities.Mermaid = new MyMermaidRenderer(); // implements IMermaidRenderer
 
 ## Architecture
 
-Design decisions live in [`docs/adr`](docs/adr) and the domain language in [`CONTEXT.md`](CONTEXT.md). Key choices:
+Design decisions live in [`docs/adr`](https://github.com/QuickerOrg/WpfMarkdownViewer/tree/main/docs/adr) and the domain language in [`CONTEXT.md`](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/CONTEXT.md). Key choices:
 
 - **Self-built block renderer** over FlowDocument/WebView2 (ADR-0001).
 - **Markdig as the source of truth**, with a converging streaming parser (ADR-0002).
@@ -192,8 +193,19 @@ Everything else is isolated in opt-in **plugin** assemblies (see [Capabilities](
 
 ## Status & roadmap
 
-The streaming pipeline, conversation shell, math, SVG, Mermaid, and the polish items below are implemented and covered by 200+ tests. See [`docs/milestone-1.md`](docs/milestone-1.md) and [`docs/milestone-3.md`](docs/milestone-3.md).
+The streaming pipeline, conversation shell, math, SVG, Mermaid, and the polish items below are implemented and covered by 200+ tests. See [`docs/milestone-1.md`](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/docs/milestone-1.md) and [`docs/milestone-3.md`](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/docs/milestone-3.md).
 
 Recently added: streaming “typing” caret, horizontal scroll for long code lines, table column alignment, nested lists, raw inline-HTML passthrough (`<br>`, `<sub>`, `<b>`, …), bare-URL autolinks, reference-style links, hard line breaks, right-click context menu, click-to-zoom images, and bounded image/diagram caches.
 
-Not yet implemented: footnotes, structured (per-block screen-reader) accessibility, and NuGet packaging (the project is intended to be embedded as source).
+Not yet implemented: footnotes and structured (per-block screen-reader) accessibility.
+
+## Contributing and security
+
+Contributions are welcome; see [`CONTRIBUTING.md`](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/CONTRIBUTING.md). Please report vulnerabilities
+privately as described in [`SECURITY.md`](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/SECURITY.md). NuGet release setup and the tag-based release
+process are documented in [`docs/releasing.md`](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/docs/releasing.md).
+
+## License
+
+WpfMarkdownViewer is available under the [MIT License](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/LICENSE). Third-party components retain their
+respective licenses; see [`THIRD-PARTY-NOTICES.md`](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/THIRD-PARTY-NOTICES.md).

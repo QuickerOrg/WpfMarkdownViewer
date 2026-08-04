@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Description>Native WPF Markdown renderer optimized for incremental AI/LLM streaming.</Description>
+    <PackageTags>$(PackageTags);renderer;virtualization</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

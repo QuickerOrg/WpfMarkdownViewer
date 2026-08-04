@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Description>SVG image rendering plugin for WpfMarkdownViewer, powered by SharpVectors.</Description>
+    <PackageTags>$(PackageTags);svg;vector</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

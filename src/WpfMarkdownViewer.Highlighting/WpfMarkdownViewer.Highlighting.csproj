@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Description>TextMate syntax-highlighting plugin for WpfMarkdownViewer.</Description>
+    <PackageTags>$(PackageTags);syntax-highlighting;textmate</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

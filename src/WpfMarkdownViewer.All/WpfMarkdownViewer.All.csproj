@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Description>Meta-package containing WpfMarkdownViewer and all built-in rendering plugins.</Description>
+    <PackageTags>$(PackageTags);syntax-highlighting;latex;svg;mermaid</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

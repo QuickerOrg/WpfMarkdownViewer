@@ -1,0 +1,78 @@
+name: Publish NuGet packages
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read package version from tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$') {
+            throw "Tag '$env:GITHUB_REF_NAME' must use vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-prerelease."
+          }
+          "PACKAGE_VERSION=$($Matches.version)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Restore
+        run: dotnet restore WpfMarkdownViewer.slnx
+
+      - name: Build
+        run: dotnet build WpfMarkdownViewer.slnx --configuration Release --no-restore -p:Version=$env:PACKAGE_VERSION
+
+      - name: Test
+        run: dotnet test tests/WpfMarkdownViewer.Tests/WpfMarkdownViewer.Tests.csproj --configuration Release --no-build -p:Version=$env:PACKAGE_VERSION
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem src -Recurse -Filter *.csproj | Sort-Object FullName
+          foreach ($project in $projects) {
+            dotnet pack $project.FullName `
+              --configuration Release `
+              --no-build `
+              --output artifacts/packages `
+              -p:Version=$env:PACKAGE_VERSION
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ github.ref_name }}
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          if-no-files-found: error
+
+      - name: Publish to NuGet.org
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
+            throw 'Repository secret NUGET_API_KEY is not configured.'
+          }
+          Get-ChildItem artifacts/packages -Filter *.nupkg |
+            Where-Object Name -NotLike '*.snupkg' |
+            ForEach-Object {
+              dotnet nuget push $_.FullName `
+                --api-key $env:NUGET_API_KEY `
+                --source https://api.nuget.org/v3/index.json `
+                --skip-duplicate
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
