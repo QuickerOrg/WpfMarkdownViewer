@@ -2,6 +2,8 @@
 
 [English](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/README.md) | [简体中文](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/README.zh-CN.md)
 
+[![NuGet](https://img.shields.io/nuget/vpre/WpfMarkdownViewer.All.svg?label=NuGet)](https://www.nuget.org/packages/WpfMarkdownViewer.All)
+
 A native **WPF** component for rendering AI-generated Markdown with **ChatGPT-quality visuals** and **smooth incremental streaming** — no browser, no WebView2, no JavaScript.
 
 Built as long-term shared infrastructure for AI features (multiple model providers, plugin output, action docs), not a one-off viewer. The renderer is **self-drawn** (`TextFormatter` + `DrawingContext`), only re-renders the single trailing block as tokens arrive, and **converges** its streaming preview to a `Markdig` parse once a block is finalized.
@@ -25,8 +27,24 @@ AI token stream → AppendDelta(...) → adaptive throttle → streaming block p
 
 - .NET 10 (Windows), WPF (`net10.0-windows`).
 
-> NuGet publishing is prepared but the first public version has not been released yet. Until then,
-> reference the `WpfMarkdownViewer` project directly or build the packages from source.
+## Install from NuGet
+
+Install the all-capabilities package:
+
+```powershell
+dotnet add package WpfMarkdownViewer.All --prerelease
+```
+
+Or select only the packages your application needs:
+
+| Package | Contents |
+| --- | --- |
+| [`WpfMarkdownViewer`](https://www.nuget.org/packages/WpfMarkdownViewer) | Core renderer |
+| [`WpfMarkdownViewer.Highlighting`](https://www.nuget.org/packages/WpfMarkdownViewer.Highlighting) | TextMate syntax highlighting |
+| [`WpfMarkdownViewer.Math`](https://www.nuget.org/packages/WpfMarkdownViewer.Math) | LaTeX math |
+| [`WpfMarkdownViewer.Svg`](https://www.nuget.org/packages/WpfMarkdownViewer.Svg) | SVG images |
+| [`WpfMarkdownViewer.Mermaid`](https://www.nuget.org/packages/WpfMarkdownViewer.Mermaid) | Mermaid diagrams |
+| [`WpfMarkdownViewer.All`](https://www.nuget.org/packages/WpfMarkdownViewer.All) | Core and every built-in plugin |
 
 ## Capabilities (plugins)
 

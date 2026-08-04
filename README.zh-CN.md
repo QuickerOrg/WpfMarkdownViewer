@@ -2,6 +2,8 @@
 
 [English](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/README.md) | [简体中文](https://github.com/QuickerOrg/WpfMarkdownViewer/blob/main/README.zh-CN.md)
 
+[![NuGet](https://img.shields.io/nuget/vpre/WpfMarkdownViewer.All.svg?label=NuGet)](https://www.nuget.org/packages/WpfMarkdownViewer.All)
+
 一个原生 **WPF** Markdown 组件，面向 AI 生成内容，提供接近 ChatGPT 的视觉效果和流畅的增量流式渲染——不使用浏览器、WebView2 或 JavaScript。
 
 它被设计为 AI 功能（多模型提供商、插件输出、动作说明）的长期共享基础设施，而不是一次性查看器。渲染器使用 `TextFormatter` + `DrawingContext` 自绘；令牌流入时只重新渲染末尾正在生成的块，块完成后则收敛到 `Markdig` 的权威解析结果。
@@ -25,7 +27,24 @@ AI 令牌流 → AppendDelta(...) → 自适应节流 → 流式块解析器
 
 - Windows、.NET 10、WPF（`net10.0-windows`）。
 
-> NuGet 自动发布流程已经准备完成，但首个公开版本尚未发布。在此之前，可以直接引用 `WpfMarkdownViewer` 项目，或从源码构建 NuGet 包。
+## 从 NuGet 安装
+
+安装包含全部能力的包：
+
+```powershell
+dotnet add package WpfMarkdownViewer.All --prerelease
+```
+
+也可以只选择应用需要的包：
+
+| 包 | 内容 |
+| --- | --- |
+| [`WpfMarkdownViewer`](https://www.nuget.org/packages/WpfMarkdownViewer) | 核心渲染器 |
+| [`WpfMarkdownViewer.Highlighting`](https://www.nuget.org/packages/WpfMarkdownViewer.Highlighting) | TextMate 语法高亮 |
+| [`WpfMarkdownViewer.Math`](https://www.nuget.org/packages/WpfMarkdownViewer.Math) | LaTeX 数学公式 |
+| [`WpfMarkdownViewer.Svg`](https://www.nuget.org/packages/WpfMarkdownViewer.Svg) | SVG 图片 |
+| [`WpfMarkdownViewer.Mermaid`](https://www.nuget.org/packages/WpfMarkdownViewer.Mermaid) | Mermaid 图表 |
+| [`WpfMarkdownViewer.All`](https://www.nuget.org/packages/WpfMarkdownViewer.All) | 核心和全部内置插件 |
 
 ## 能力插件
 
