@@ -19,6 +19,7 @@ internal sealed class ListView : Panel
     private static readonly string[] Bullets = { "•", "◦", "▪" };
 
     private readonly MarkdownStyle _theme;
+    private readonly Action<string>? _onLink;
     private readonly List<Marker> _markers = new();
     private readonly List<double> _itemTops = new();
 
@@ -27,18 +28,41 @@ internal sealed class ListView : Panel
     public ListView(ListBlock list, MarkdownStyle theme, Action<string>? onLink = null)
     {
         _theme = theme;
-        foreach (var item in ParseItems(list.RawText))
+        _onLink = onLink;
+        Update(list);
+    }
+
+    internal void Update(ListBlock list)
+    {
+        var items = ParseItems(list.RawText).ToList();
+        _markers.Clear();
+        for (int index = 0; index < items.Count; index++)
         {
+            var item = items[index];
             string mdPrefix = item.IsTask
                 ? (item.Checked ? "- [x] " : "- [ ] ")
                 : item.Ordered ? $"{item.Number}. " : "- ";
             _markers.Add(item.IsTask
                 ? new Marker(item.Level, null, IsTask: true, item.Checked)
                 : new Marker(item.Level, item.Ordered ? $"{item.Number}." : Bullets[item.Level % Bullets.Length], IsTask: false, Checked: false));
-            InternalChildren.Add(new ParagraphView(
-                InlineProjector.Project(item.Content), theme, theme.EmSize, FontWeights.Normal,
-                lineHeightFactor: theme.ListLineHeight, onLink: onLink, markdownPrefix: mdPrefix));
+            var projection = InlineProjector.Project(item.Content);
+            if (index < InternalChildren.Count && InternalChildren[index] is ParagraphView paragraph)
+            {
+                paragraph.UpdateProjection(projection, mdPrefix);
+            }
+            else
+            {
+                InternalChildren.Add(new ParagraphView(
+                    projection, _theme, _theme.EmSize, FontWeights.Normal,
+                    lineHeightFactor: _theme.ListLineHeight, onLink: _onLink, markdownPrefix: mdPrefix));
+            }
         }
+
+        while (InternalChildren.Count > items.Count)
+            InternalChildren.RemoveAt(InternalChildren.Count - 1);
+
+        InvalidateMeasure();
+        InvalidateVisual();
     }
 
     private readonly record struct Item(string Content, int Level, bool Ordered, int Number, bool IsTask, bool Checked);

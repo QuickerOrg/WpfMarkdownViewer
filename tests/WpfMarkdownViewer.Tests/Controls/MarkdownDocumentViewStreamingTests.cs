@@ -1,3 +1,5 @@
+using System.Windows;
+using System.Windows.Media;
 using WpfMarkdownViewer.Controls;
 using WpfMarkdownViewer.Model;
 
@@ -5,6 +7,50 @@ namespace WpfMarkdownViewer.Tests.Controls;
 
 public class MarkdownDocumentViewStreamingTests
 {
+    [WpfFact]
+    public void PlainTextStreaming_KeepsTheActiveParagraphVisual()
+    {
+        var view = new MarkdownDocumentView();
+        view.AppendDelta("hello");
+        view.FlushForTest();
+        Layout(view);
+        var first = VisualTreeHelper.GetChild(view, 0);
+
+        view.AppendDelta(" world");
+        view.FlushForTest();
+        Layout(view);
+        var second = VisualTreeHelper.GetChild(view, 0);
+
+        Assert.Same(first, second);
+    }
+
+    [WpfFact]
+    public void ListStreaming_KeepsTheListAndExistingItemVisuals()
+    {
+        var view = new MarkdownDocumentView();
+        view.AppendDelta("- first");
+        view.FlushForTest();
+        Layout(view);
+        var firstList = VisualTreeHelper.GetChild(view, 0);
+        var firstItem = VisualTreeHelper.GetChild(firstList, 0);
+
+        view.AppendDelta(" item");
+        view.FlushForTest();
+        Layout(view);
+        var secondList = VisualTreeHelper.GetChild(view, 0);
+        var secondItem = VisualTreeHelper.GetChild(secondList, 0);
+
+        Assert.Same(firstList, secondList);
+        Assert.Same(firstItem, secondItem);
+    }
+
+    private static void Layout(MarkdownDocumentView view)
+    {
+        view.Measure(new Size(600, double.PositiveInfinity));
+        view.Arrange(new Rect(0, 0, 600, view.DesiredSize.Height));
+        view.UpdateLayout();
+    }
+
     [WpfFact]
     public void AppendDelta_ThenFlush_PopulatesDocument()
     {

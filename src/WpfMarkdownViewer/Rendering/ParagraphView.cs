@@ -21,7 +21,7 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
     private readonly bool _monospace;
     private readonly double _lineHeightFactor;
     private readonly Action<string>? _onLink;
-    private readonly string _markdownPrefix;
+    private string _markdownPrefix;
     private readonly List<TextLine> _lines = new();
 
     // Kept for the lifetime of the view: the TextLines drawn in OnRender depend on this formatter's
@@ -53,6 +53,21 @@ internal sealed class ParagraphView : FrameworkElement, ISelectableText
     }
 
     public string MarkdownLinePrefix => _markdownPrefix;
+
+    /// <summary>
+    /// Replaces the projected text while keeping the same WPF element, formatter, selection owner,
+    /// and layout position. Streaming callers use this instead of rebuilding the visual tree.
+    /// </summary>
+    internal void UpdateProjection(InlineProjection projection, string markdownPrefix = "")
+    {
+        ArgumentNullException.ThrowIfNull(projection);
+        _projection = projection;
+        _markdownPrefix = markdownPrefix;
+        _selStart = Math.Min(_selStart, projection.VisibleText.Length);
+        _selEnd = Math.Min(_selEnd, projection.VisibleText.Length);
+        InvalidateMeasure();
+        InvalidateVisual();
+    }
 
     /// <summary>When true, a blinking "typing" caret is drawn at the end of the last line (active streaming block).</summary>
     public bool ShowCaret { get; set; }

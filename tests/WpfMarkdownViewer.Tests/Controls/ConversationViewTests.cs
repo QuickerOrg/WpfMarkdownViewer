@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using WpfMarkdownViewer.Controls;
 
 namespace WpfMarkdownViewer.Tests.Controls;
@@ -234,6 +235,22 @@ public class ConversationViewTests
 
         Assert.Equal(new[] { "复制" }, view.ActionLabelsForTest(0));
         Assert.Equal(new[] { "复制", "重新生成" }, view.ActionLabelsForTest(1));
+    }
+
+    [WpfFact]
+    public void HoverActionBar_DoesNotChangeConversationHeight()
+    {
+        var view = new ConversationView();
+        view.AddMessage(ChatRole.Assistant, "answer");
+        Layout(view, 300);
+        double hiddenHeight = view.DesiredSize.Height;
+        var container = Assert.IsType<StackPanel>(view.MessagesHost[0]);
+        var actionBar = Assert.IsAssignableFrom<FrameworkElement>(container.Children[1]);
+
+        actionBar.Visibility = Visibility.Visible;
+        Layout(view, 300);
+
+        Assert.Equal(hiddenHeight, view.DesiredSize.Height);
     }
 
     [WpfFact]

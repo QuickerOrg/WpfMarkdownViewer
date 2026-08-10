@@ -230,7 +230,7 @@ public class ConversationView : Panel, IVirtualizingContent, IScrollHostAware
         if (!AlwaysShowActions)
         {
             container.MouseEnter += (_, _) => actionBar.Visibility = Visibility.Visible;
-            container.MouseLeave += (_, _) => actionBar.Visibility = Visibility.Collapsed;
+            container.MouseLeave += (_, _) => actionBar.Visibility = Visibility.Hidden;
         }
 
         slot.Element = container;
@@ -249,7 +249,9 @@ public class ConversationView : Panel, IVirtualizingContent, IScrollHostAware
             Orientation = Orientation.Horizontal,
             Margin = new Thickness(2, 4, 2, 0),
             HorizontalAlignment = slot.Role == ChatRole.User ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-            Visibility = AlwaysShowActions ? Visibility.Visible : Visibility.Collapsed,
+            // Hidden keeps the action row's measured height stable. Collapsed made every hover move
+            // all following messages, which could repeatedly retrigger hover during streaming layout.
+            Visibility = AlwaysShowActions ? Visibility.Visible : Visibility.Hidden,
         };
         bar.Children.Add(ActionButton("复制", () => CopyMessage(slot)));
         if (slot.Role == ChatRole.Assistant)

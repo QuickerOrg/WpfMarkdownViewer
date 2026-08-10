@@ -23,8 +23,8 @@ public sealed class LinkClickedEventArgs : EventArgs
 /// <summary>
 /// The core single-Document Markdown renderer (CONTEXT.md: "Document"). Read-only (ADR-0009); self-drawn
 /// blocks (ADR-0005). It is non-scrolling content that stacks Block visuals top-to-bottom; the Scroll
-/// Host (phase E) wraps it. Finalized Block visuals are immutable and reused; only the Active Block's
-/// visual is rebuilt per tick.
+/// Host (phase E) wraps it. Finalized Block visuals are immutable and reused; compatible Active Block
+/// visuals are updated in place while streaming.
 /// </summary>
 /// <remarks>
 /// <see cref="AppendDelta"/> is safe to call from any thread; everything else is expected on the UI
@@ -60,7 +60,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
 
     private sealed class BlockSlot
     {
-        public required MdBlock Block { get; init; }
+        public required MdBlock Block { get; set; }
         public FrameworkElement? View { get; set; }
         public double Height { get; set; }
         public double Y { get; set; }
@@ -226,7 +226,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Reconcile slots with the Document: keep finalized-Block slots, rebuild the tail. Realization is decided in measure.</summary>
+    /// <summary>Reconcile slots with the Document, updating compatible streaming tail visuals in place.</summary>
     private void Render()
     {
         var blocks = Document.Blocks;
@@ -237,14 +237,43 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
             _stableCount = 0;
         }
 
-        for (int i = _slots.Count - 1; i >= _stableCount; i--)
+        int sharedCount = Math.Min(_slots.Count, blocks.Count);
+        for (int i = _stableCount; i < sharedCount; i++)
         {
-            if (_slots[i].View is { } v)
-                InternalChildren.Remove(v);
+            var slot = _slots[i];
+            var block = blocks[i];
+            bool sameShape = BlockShape.Of(slot.Block) == BlockShape.Of(block);
+            bool updated = sameShape
+                           && slot.View is { } existing
+                           && BlockViewFactory.TryUpdate(existing, block, Document.LinkDefinitions);
+            slot.Block = block;
+            if (!updated && slot.View is { } oldView)
+            {
+                int visualIndex = InternalChildren.IndexOf(oldView);
+                var replacement = BlockViewFactory.Create(
+                    block,
+                    _theme,
+                    RaiseLink,
+                    ImageBasePath,
+                    Document.LinkDefinitions);
+                InternalChildren.Remove(oldView);
+                if (visualIndex >= 0)
+                    InternalChildren.Insert(visualIndex, replacement);
+                else
+                    InternalChildren.Add(replacement);
+                slot.View = replacement;
+                slot.Height = 0;
+            }
+        }
+
+        for (int i = _slots.Count - 1; i >= blocks.Count; i--)
+        {
+            if (_slots[i].View is { } view)
+                InternalChildren.Remove(view);
             _slots.RemoveAt(i);
         }
 
-        for (int i = _stableCount; i < blocks.Count; i++)
+        for (int i = _slots.Count; i < blocks.Count; i++)
         {
             var view = BlockViewFactory.Create(blocks[i], _theme, RaiseLink, ImageBasePath, Document.LinkDefinitions);
             InternalChildren.Add(view);

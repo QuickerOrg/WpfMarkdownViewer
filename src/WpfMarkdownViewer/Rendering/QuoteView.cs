@@ -15,14 +15,19 @@ internal sealed class QuoteView : Panel
     private const double PadV = 2;
 
     private readonly MarkdownStyle _theme;
+    private readonly ParagraphView _paragraph;
 
     public QuoteView(QuoteBlock quote, MarkdownStyle theme, Action<string>? onLink = null)
     {
         _theme = theme;
-        InternalChildren.Add(new ParagraphView(
+        _paragraph = new ParagraphView(
             InlineProjector.Project(StripQuoteMarkers(quote.RawText)), theme, theme.EmSize, FontWeights.Normal,
-            lineHeightFactor: theme.QuoteLineHeight, onLink: onLink, markdownPrefix: "> "));
+            lineHeightFactor: theme.QuoteLineHeight, onLink: onLink, markdownPrefix: "> ");
+        InternalChildren.Add(_paragraph);
     }
+
+    internal void Update(QuoteBlock quote) =>
+        _paragraph.UpdateProjection(InlineProjector.Project(StripQuoteMarkers(quote.RawText)), "> ");
 
     protected override Size MeasureOverride(Size availableSize)
     {

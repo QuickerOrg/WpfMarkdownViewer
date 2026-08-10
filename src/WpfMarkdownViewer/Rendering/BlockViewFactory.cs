@@ -40,6 +40,41 @@ internal static class BlockViewFactory
             lineHeightFactor: theme.ParagraphLineHeight, onLink: onLink),
     };
 
+    /// <summary>
+    /// Updates compatible streaming visuals in place. A false result means the block changed shape
+    /// and the caller must replace the visual once.
+    /// </summary>
+    public static bool TryUpdate(
+        FrameworkElement view,
+        MdBlock block,
+        IReadOnlyDictionary<string, string>? linkDefs = null)
+    {
+        switch (view, block)
+        {
+            case (ParagraphView paragraph, HeadingBlock heading):
+                paragraph.UpdateProjection(
+                    InlineProjector.Project(InlineSource.Extract(heading), linkDefs),
+                    new string('#', Math.Clamp(heading.Level, 1, 6)) + " ");
+                return true;
+
+            case (ParagraphView paragraph, ParagraphBlock):
+                paragraph.UpdateProjection(
+                    InlineProjector.Project(InlineSource.Extract(block), linkDefs));
+                return true;
+
+            case (ListView listView, ListBlock list):
+                listView.Update(list);
+                return true;
+
+            case (QuoteView quoteView, QuoteBlock quote):
+                quoteView.Update(quote);
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     private static FrameworkElement CreateCodeView(CodeBlock c, MarkdownStyle theme)
     {
         string code = CodeText.Extract(c);
