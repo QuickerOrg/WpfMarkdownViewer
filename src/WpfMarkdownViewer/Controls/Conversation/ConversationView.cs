@@ -166,25 +166,23 @@ public class ConversationView : Panel, IVirtualizingContent, IScrollHostAware
         InvalidateMeasure();
     }
 
-    /// <summary>Switch the appearance at runtime; rebuilds message chrome to match the new theme.</summary>
+    /// <summary>Switch the appearance at runtime; restyles every realized message and its chrome in place.</summary>
     public void ApplyTheme(MarkdownStyle theme)
     {
         _style = theme ?? throw new ArgumentNullException(nameof(theme));
         Background = _style.Background;
         foreach (var slot in _slots)
         {
-            if (slot.IsActive && slot.View is { } live)
+            // Restyle in place: the message view re-creates its Block visuals from the Blocks it already
+            // parsed (no re-parse), and a streaming message keeps streaming. Virtualized-away messages have
+            // no visuals and are realized with the new style later.
+            slot.View?.ApplyTheme(StyleForRole(slot.Role));
+            if (slot.Bubble is { } bubble)
+                bubble.Background = _style.UserBubbleBackground;
+            if (slot.ActionBar is Panel bar)
             {
-                // Don't rebuild the streaming view (SetMarkdown would finalize it) — restyle it in place.
-                live.ApplyTheme(StyleForRole(slot.Role));
-                if (slot.Bubble is { } bubble)
-                    bubble.Background = _style.UserBubbleBackground;
-            }
-            else if (slot.Element is not null)
-            {
-                // Rebuild realized chrome with the new style (Realize re-renders finalized messages).
-                Devirtualize(slot);
-                Realize(slot);
+                foreach (var button in bar.Children.OfType<Button>())
+                    button.Foreground = _style.SubtleForeground;
             }
         }
         InvalidateMeasure();

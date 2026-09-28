@@ -192,8 +192,37 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         var view = (MarkdownDocumentView)d;
         view._theme = (MarkdownStyle)e.NewValue;
         view.Background = view._theme.Background;
-        view._stableCount = 0;
-        view.Render();
+        view.RestyleRealizedBlocks();
+    }
+
+    /// <summary>
+    /// Re-create every realized Block visual with the current style. Block visuals bake the style in at
+    /// construction (colors, fonts, em sizes, highlighted code colors), so the in-place streaming update
+    /// (<see cref="BlockViewFactory.TryUpdate"/>) cannot restyle them. The parsed Blocks are reused as-is:
+    /// no re-parse, no change to the source buffer, the pending delta queue, the flush pump or the
+    /// finalized/active split — a stream in progress simply continues with the new style.
+    /// Virtualized-away slots have no visual and pick the style up when they are realized again.
+    /// </summary>
+    private void RestyleRealizedBlocks()
+    {
+        foreach (var slot in _slots)
+        {
+            if (slot.View is not { } oldView)
+                continue;
+            var replacement = BlockViewFactory.Create(slot.Block, _theme, RaiseLink, ImageBasePath, Document.LinkDefinitions);
+            int visualIndex = InternalChildren.IndexOf(oldView);
+            InternalChildren.Remove(oldView);
+            if (visualIndex >= 0)
+                InternalChildren.Insert(visualIndex, replacement);
+            else
+                InternalChildren.Add(replacement);
+            slot.View = replacement;
+            slot.Height = 0; // font metrics may have changed; re-measure
+        }
+
+        // The streaming caret rides the trailing visual, which was just replaced.
+        UpdateCaret();
+        InvalidateMeasure();
     }
 
     /// <summary>Convenience: switch the appearance at runtime (routes through the MarkdownStyle property).</summary>
