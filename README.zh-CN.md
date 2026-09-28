@@ -17,7 +17,7 @@ AI 令牌流 → AppendDelta(...) → 自适应节流 → 流式块解析器
 
 ## 主要特性
 
-- **为流式输出而生。** `AppendDelta` 线程安全；自适应计时器按离散节奏刷新，并且只重新渲染活动块。已完成块保持不可变并被复用。
+- **为流式输出而生。** `AppendDelta` 线程安全；自适应计时器按离散节奏刷新，并且只重新渲染活动块；无待刷新内容时自动停止，`Unloaded` 时停止全部计时器（无需显式释放）。已完成块保持不可变并被复用。
 - **原生自绘，性能优先。** 不使用 `FlowDocument`，也不会在每个令牌到达时重建整棵视觉树。块级、视口级和消息级虚拟化使长对话仍能保持响应。
 - **ChatGPT 风格会话外壳。** 可选的 `ConversationView` 提供用户气泡、全宽助手消息、复制/重新生成操作栏和消息级虚拟化。
 - **丰富内容。** 支持标题、强调、列表、任务列表、表格、引用、带 TextMate 高亮和复制按钮的围栏代码、位图与 SVG、LaTeX 数学公式以及 Mermaid 图表，全部原生渲染。
@@ -165,7 +165,7 @@ Capabilities.Mermaid = new MyMermaidRenderer(); // 实现 IMermaidRenderer
 ## 主要公共 API
 
 **`MarkdownDocumentView`**（`Panel`）——单个流式文档：
-`AppendDelta`、`Complete`、`Reset`、`Abort`、`SetMarkdown`、`SelectAll`、`CopySelection`、`ApplyTheme`、`MarkdownStyle`、`ImageBasePath`、`VirtualizationEnabled`、`ShrinkToContentWidth`、`SelectionEnabled`，以及 `LinkClicked`、`DocumentChanged` 事件。
+`AppendDelta`、`Complete`、`Reset`、`Abort`、`SetMarkdown`、`SelectAll`、`CopySelection`、`ApplyTheme`、`MarkdownStyle`、`ImageBasePath`、`VirtualizationEnabled`、`ShrinkToContentWidth`、`SelectionEnabled`、`IsFlushTimerRunning`、`IsCaretTimerRunning`（诊断用），以及 `LinkClicked`、`DocumentChanged` 事件。
 
 **`MarkdownScrollHost`**（`Grid`）——视口和自动滚动：
 `Content`、`IsStickToBottom`、`JumpToLatest()`、`ScrollToTop()`。

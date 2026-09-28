@@ -17,7 +17,7 @@ AI token stream → AppendDelta(...) → adaptive throttle → streaming block p
 
 ## Highlights
 
-- **Streaming-first.** `AppendDelta` is thread-safe; an adaptive timer flushes on a discrete cadence and re-renders only the active block. Finalized blocks are immutable and reused.
+- **Streaming-first.** `AppendDelta` is thread-safe; an adaptive timer flushes on a discrete cadence and re-renders only the active block; it stops when nothing is pending and all timers stop on `Unloaded` (no disposal needed). Finalized blocks are immutable and reused.
 - **Self-drawn, fast.** No `FlowDocument`, no per-token visual-tree rebuilds. Two-level + message-level virtualization keeps long transcripts responsive.
 - **ChatGPT-style chat shell.** Optional `ConversationView`: user bubbles, full-width assistant turns, per-message action bar (copy / regenerate), message-level virtualization.
 - **Rich content.** Headings, emphasis, lists, task lists, tables, blockquotes, fenced code with TextMate highlighting + copy button, images (bitmap **and SVG**), block & inline **math** (LaTeX), and **Mermaid** diagrams — all rendered natively.
@@ -163,7 +163,7 @@ Capabilities.Mermaid = new MyMermaidRenderer(); // implements IMermaidRenderer
 ## Public API (essentials)
 
 **`MarkdownDocumentView`** (`Panel`) — one streamed document
-`AppendDelta` · `Complete` · `Reset` · `Abort` · `SetMarkdown` · `SelectAll` · `CopySelection` · `ApplyTheme` · `MarkdownStyle` · `ImageBasePath` · `VirtualizationEnabled` · `ShrinkToContentWidth` · `SelectionEnabled` · events `LinkClicked`, `DocumentChanged`
+`AppendDelta` · `Complete` · `Reset` · `Abort` · `SetMarkdown` · `SelectAll` · `CopySelection` · `ApplyTheme` · `MarkdownStyle` · `ImageBasePath` · `VirtualizationEnabled` · `ShrinkToContentWidth` · `SelectionEnabled` · `IsFlushTimerRunning` · `IsCaretTimerRunning` (diagnostics) · events `LinkClicked`, `DocumentChanged`
 
 **`MarkdownScrollHost`** (`Grid`) — viewport + autoscroll
 `Content` · `IsStickToBottom` · `JumpToLatest()` · `ScrollToTop()`

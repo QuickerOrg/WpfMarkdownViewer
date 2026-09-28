@@ -30,6 +30,11 @@ public sealed class LinkClickedEventArgs : EventArgs
 /// <see cref="AppendDelta"/> is safe to call from any thread; everything else is expected on the UI
 /// thread. A background <see cref="DispatcherTimer"/> drains the queue on an adaptive cadence
 /// ("自适应离散三档") and re-derives + re-renders the Document.
+/// <para>Timer lifecycle: the flush pump runs only while appended deltas are waiting to be flushed and stops
+/// as soon as the queue is drained; the streaming caret blinks only while it is shown and the control is
+/// visible. <c>Unloaded</c> stops every timer (pending deltas are kept) and <c>Loaded</c> resumes whatever is
+/// still needed, so the control can enter and leave the tree repeatedly and never keeps itself (or its
+/// window) alive through the Dispatcher once it is idle or unloaded. No explicit disposal is required.</para>
 /// </remarks>
 public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAware
 {
@@ -50,6 +55,12 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
     private DateTime _lastInputUtc = DateTime.UtcNow;
     private bool _completed;
     private bool _dirty;
+
+    /// <summary>1 while the pump is running or a start has been queued (AppendDelta may run off the UI thread).</summary>
+    private int _pumpRequested;
+
+    /// <summary>True between <c>Unloaded</c> and the next <c>Loaded</c>: no timer may run.</summary>
+    private bool _suspended;
 
     /// <summary>How many leading slots correspond to finalized, immutable Blocks (never rebuilt).</summary>
     private int _stableCount;
@@ -97,10 +108,72 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, _) => CopySelection()));
         _pump = new DispatcherTimer(DispatcherPriority.Background) { Interval = _policy.MidInterval };
         _pump.Tick += OnPumpTick;
-        _pump.Start();
         _caretBlink = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(530) };
         _caretBlink.Tick += OnCaretBlink;
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
+        IsVisibleChanged += (_, _) => UpdateCaretTimer();
         BuildContextMenu();
+    }
+
+    /// <summary>Whether the streaming flush timer is currently running (diagnostics). False once pending deltas are flushed or the control is unloaded.</summary>
+    public bool IsFlushTimerRunning => _pump.IsEnabled;
+
+    /// <summary>Whether the streaming caret blink timer is currently running (diagnostics). True only while a streaming caret is shown and the control is visible.</summary>
+    public bool IsCaretTimerRunning => _caretBlink.IsEnabled;
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _suspended = false;
+        if (!_incoming.IsEmpty || _dirty)
+            RequestPump();
+        UpdateCaretTimer();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        // Pending deltas stay queued and are flushed after the next Loaded.
+        _suspended = true;
+        _pump.Stop();
+        Interlocked.Exchange(ref _pumpRequested, 0);
+        UpdateCaretTimer();
+        if (_selection.IsDragging)
+            _selection.End();
+    }
+
+    /// <summary>Ensure the pump will run. Thread-safe.</summary>
+    private void RequestPump()
+    {
+        if (Interlocked.Exchange(ref _pumpRequested, 1) == 1)
+            return;
+        if (Dispatcher.CheckAccess())
+            StartPump();
+        else
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(StartPump));
+    }
+
+    private void StartPump()
+    {
+        if (_suspended)
+        {
+            Interlocked.Exchange(ref _pumpRequested, 0);
+            return;
+        }
+        if (_pump.IsEnabled)
+            return;
+        // A restart after an idle gap resumes at the cadence the always-on pump used while idle.
+        if (_policy.IsIdle(DateTime.UtcNow - _lastTickUtc))
+            _pump.Interval = _policy.MidInterval;
+        _pump.Start();
+    }
+
+    private void StopPump()
+    {
+        _pump.Stop();
+        Interlocked.Exchange(ref _pumpRequested, 0);
+        // A producer may have enqueued after the drain but before the flag was cleared.
+        if (!_incoming.IsEmpty)
+            RequestPump();
     }
 
     /// <summary>The appearance configuration (fonts, sizes, margins, colors). Settable in code or XAML; runtime-swappable (M2-1).</summary>
@@ -143,6 +216,7 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         _incoming.Enqueue(delta);
         Interlocked.Add(ref _tokensSeen, delta.Length);
         _lastInputUtc = DateTime.UtcNow;
+        RequestPump();
     }
 
     /// <summary>Signal that the stream is complete; finalizes the Active Block (Markdig becomes authoritative).</summary>
@@ -157,6 +231,8 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
     public void Reset()
     {
         while (_incoming.TryDequeue(out _)) { }
+        if (_pump.IsEnabled)
+            StopPump();
         _source.Clear();
         _completed = false;
         Interlocked.Exchange(ref _tokensSeen, 0);
@@ -198,6 +274,10 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         _lastTickUtc = now;
 
         _pump.Interval = idle ? _policy.MidInterval : _policy.NextInterval(rate);
+
+        // Nothing left to flush: stop instead of spinning. The next AppendDelta restarts the pump.
+        if (_incoming.IsEmpty && !_dirty)
+            StopPump();
     }
 
     /// <summary>Drain the queue into the source buffer, re-derive the Document, and re-render. UI thread only.</summary>
@@ -210,6 +290,9 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
             _source.Append(delta);
             changed = true;
         }
+        // Drained synchronously (Complete/Abort/SetMarkdown/pump tick): the pump has nothing left to do.
+        if (_pump.IsEnabled && _incoming.IsEmpty)
+            StopPump();
         if (!changed)
             return;
 
@@ -313,14 +396,30 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         }
 
         if (_caretView is not null)
-        {
             _caretView.ShowCaret = _caretOn;
+        UpdateCaretTimer();
+    }
+
+    /// <summary>Blink only while a streaming caret is shown and can actually be seen (visible ⇒ loaded in a shown window).</summary>
+    private void UpdateCaretTimer()
+    {
+        bool want = _caretView is not null && !_suspended && IsVisible;
+        if (want)
+        {
             if (!_caretBlink.IsEnabled)
                 _caretBlink.Start();
+            return;
         }
-        else if (_caretBlink.IsEnabled)
+
+        if (!_caretBlink.IsEnabled)
+            return;
+        _caretBlink.Stop();
+        // Leave a steady caret behind so an unseen/snapshot render still shows it; blinking resumes when visible again.
+        if (_caretView is not null && !_caretOn)
         {
-            _caretBlink.Stop();
+            _caretOn = true;
+            _caretView.ShowCaret = true;
+            _caretView.InvalidateVisual();
         }
     }
 
@@ -451,6 +550,15 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
         ReleaseMouseCapture();
     }
 
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        // Capture taken away mid-drag (Alt+Tab, window closed, another control captured): end the drag so the
+        // edge auto-scroll timer does not keep running without a matching mouse-up.
+        if (_selection.IsDragging)
+            _selection.End();
+    }
+
     /// <summary>Select all text and draw the highlight.</summary>
     public void SelectAll() => _selection.SelectAll();
 
@@ -476,6 +584,8 @@ public class MarkdownDocumentView : Panel, IVirtualizingContent, IScrollHostAwar
     // --- Test hooks ---
 
     internal IReadOnlyList<string> SelectableTextsForTest() => _selection.SelectableTexts();
+    internal bool IsAutoScrollTimerRunningForTest => _selection.IsAutoScrollTimerRunning;
+    internal bool BeginDragForTest(Point point) => _selection.Begin(point);
     internal string SelectAndGetTextForTest(int segA, int offA, int segB, int offB) => _selection.SelectAndGetText(segA, offA, segB, offB);
     internal string SelectAndGetMarkdownForTest(int segA, int offA, int segB, int offB) => _selection.SelectAndGetMarkdown(segA, offA, segB, offB);
     internal string SelectAndGetHtmlForTest(int segA, int offA, int segB, int offB) => _selection.SelectAndGetHtml(segA, offA, segB, offB);

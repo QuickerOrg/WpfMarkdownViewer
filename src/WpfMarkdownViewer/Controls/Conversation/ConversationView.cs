@@ -60,6 +60,8 @@ public class ConversationView : Panel, IVirtualizingContent, IScrollHostAware
         _selection = new SelectionController(this);
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, _) => CopySelection()));
         BuildContextMenu();
+        // Each message's MarkdownDocumentView manages its own timers on Unloaded; only the shell-level drag needs ending here.
+        Unloaded += (_, _) => { if (_selection.IsDragging) _selection.End(); };
     }
 
     private MenuItem? _copyMenuItem;
@@ -352,6 +354,14 @@ public class ConversationView : Panel, IVirtualizingContent, IScrollHostAware
             return;
         _selection.End();
         ReleaseMouseCapture();
+    }
+
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        // Capture lost mid-drag (Alt+Tab, window closed): end the drag so the auto-scroll timer stops.
+        if (_selection.IsDragging)
+            _selection.End();
     }
 
     /// <summary>Select all text across every realized message.</summary>

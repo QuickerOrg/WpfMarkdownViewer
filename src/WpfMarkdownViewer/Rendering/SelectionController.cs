@@ -25,6 +25,9 @@ internal sealed class SelectionController
     public SelectionController(FrameworkElement root) => _root = root;
 
     public bool IsDragging { get; private set; }
+
+    /// <summary>Whether the drag auto-scroll timer is running (tests).</summary>
+    internal bool IsAutoScrollTimerRunning => _autoTimer?.IsEnabled == true;
     public bool HasSelection { get; private set; }
 
     // Auto-scroll while dragging past the viewport edge (configured by the host that owns scrolling).
